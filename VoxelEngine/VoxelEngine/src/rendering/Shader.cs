@@ -14,9 +14,15 @@ public class Shader
         this.gl = gl;
         this.handle = handle;
     }
+
     public void Use()
     {
         gl.UseProgram(handle);
+    }
+
+    public void SetUniform(string name, int value)
+    {
+        gl.Uniform1(GetUniformLocation(name), value);
     }
     public unsafe void SetUniform(string name, Matrix4x4 matrix4x4)
     {

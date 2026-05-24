@@ -11,10 +11,10 @@ public unsafe class Mesh : IDisposable
     private readonly uint ebo;
     public uint IndexCount { get; private set; }
 
-    public Mesh(GL gl, MeshData meshData)
+    public Mesh(GL gl, Vertex[] vertices, uint[] indices)
     {
         this.gl = gl;
-        this.IndexCount = (uint)meshData.Indices.Length;
+        this.IndexCount = (uint)indices.Length;
 
         vao = gl.GenVertexArray();
         vbo = gl.GenBuffer();
@@ -23,20 +23,22 @@ public unsafe class Mesh : IDisposable
         gl.BindVertexArray(vao);
 
         gl.BindBuffer(BufferTargetARB.ArrayBuffer, vbo);
-        fixed (void* v = meshData.Vertices)
+        fixed (void* v = vertices)
         {
-            gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(meshData.Vertices.Length * sizeof(Vector3)), v, BufferUsageARB.StaticDraw);
+            gl.BufferData(BufferTargetARB.ArrayBuffer, (nuint)(vertices.Length * sizeof(Vertex)), v, BufferUsageARB.StaticDraw);
         }
 
         gl.BindBuffer(BufferTargetARB.ElementArrayBuffer, ebo);
-        fixed (void* i = meshData.Indices)
+        fixed (void* i = indices)
         {
-            gl.BufferData(BufferTargetARB.ElementArrayBuffer, (nuint)(meshData.Indices.Length * sizeof(uint)), i, BufferUsageARB.StaticDraw);
+            gl.BufferData(BufferTargetARB.ElementArrayBuffer, (nuint)(indices.Length * sizeof(uint)), i, BufferUsageARB.StaticDraw);
         }
 
-        uint stride = (uint)sizeof(Vector3);
+        uint stride = (uint)sizeof(Vertex);
         gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, (void*)0);
         gl.EnableVertexAttribArray(0);
+        gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, stride, (void*)sizeof(Vector3));
+        gl.EnableVertexAttribArray(1);
 
         gl.BindVertexArray(0);
     }

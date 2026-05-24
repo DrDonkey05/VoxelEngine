@@ -4,8 +4,9 @@ using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
+using VoxelEngine.src.models;
 using VoxelEngine.src.rendering;
-
+using VoxelEngine.src.rendering.textures;
 using Shader = VoxelEngine.src.rendering.Shader;
 
 namespace VoxelEngine.src;
@@ -24,6 +25,7 @@ public class Program
 
     private static Shader shader;
     private static Camera camera;
+    private static Texture2D texture;
     private static BlockRenderer blockRenderer;
     private static Mesh mesh;
 
@@ -42,7 +44,7 @@ public class Program
             gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             gl.ClearColor(Color.CornflowerBlue);
 
-            blockRenderer.Render(mesh, camera);
+            blockRenderer.Render(mesh, camera, texture);
         };
 
         window.Update += (double dt) =>
@@ -91,10 +93,15 @@ public class Program
         camera = new Camera(aspectRatio);
         camera.Position = new Vector3(0.0f, 2.0f, 5.0f);
 
+        texture = Texture2D.LoadTexture(gl, "./assets/textures/block/rots.png");
+
         shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
         blockRenderer = new BlockRenderer(gl, shader);
-        MeshData meshData = MeshData.CreateCube();
-        mesh = new Mesh(gl, meshData);
+        BlockModel model = BlockModel.Create();
+        List<Vertex> vertices = new List<Vertex>();
+        List<uint> indices = new List<uint>();
+        MeshBuilder.BuildMesh(model, vertices, indices);
+        mesh = new Mesh(gl, vertices.ToArray(), indices.ToArray());
     }
 
     private static void HandleKeyboard(double deltaTime)
