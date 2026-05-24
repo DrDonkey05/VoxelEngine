@@ -18,16 +18,16 @@ I am looking to explore how voxel worlds might be built in a modular and expanda
 ...
 
 # Roadmap
-- Core Engine
-  - Create Baseline Project
-    - Render a 3D cube
-    - Include basic 3D camera movement
+~~- Core Engine~~
+  ~~- Create Baseline Project~~
+    ~~- Render a 3D cube~~
+    ~~- Include basic 3D camera movement~~
 - Rendering and Assets
   - Create a texture atlas supporting abitrary sizes and animations
   - Create a texture atlas generator/stitcher
   - Define block model format (JSON)
   - Generate baked models from JSON block mdoel
-  - Generate meshes from baked models
+  ~~- Generate meshes from baked models~~
 - Data System
   - Define block state format (JSON)
   - Generate block models from block states and block models combined
