@@ -8,10 +8,8 @@ public class MeshBuilder
     {
         uint offset = 0;
 
-        foreach (var face in BlockFaceExt.Faces)
+        foreach (var (face, quad) in model.Faces)
         {
-            BakedQuad quad = model.Faces[face];
-
             for (int i = 0; i < 4; i++)
             {
                 vertices.Add(new Vertex(
