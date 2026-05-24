@@ -1,5 +1,7 @@
 ﻿using System.Numerics;
+using System.Reflection;
 using VoxelEngine.src.rendering;
+using static VoxelEngine.src.models.ModelData;
 
 namespace VoxelEngine.src.models;
 
@@ -74,25 +76,78 @@ public class BlockModel
         float[] from = { 5f, 5f, 5f };
         float[] to = { 11f, 11f, 11f };
 
-        BlockModel model = new BlockModel();
-        Dictionary<BlockFace, bool> facesToDo = new()
+        ModelData full_block = new ModelData
         {
-            {BlockFace.Up, true},
-            {BlockFace.Down, true},
-            {BlockFace.North, true},
-            {BlockFace.South, true},
-            {BlockFace.East, true},
-            {BlockFace.West, true},
+            Elements = new List<ModelData.ModelElement>()
+            {
+                new ModelData.ModelElement
+                {
+                    From = [0,0,0], To = [16,16,16],
+                    Faces = new()
+                    {
+                        { BlockFace.Up, new() { UVs = [0,0,16,16], Rotation=90 } },
+                        { BlockFace.Down, new() { UVs = [0,0,16,16], Rotation=90 } },
+                        { BlockFace.North, new() { UVs = [0,0,16,16], Rotation=90 } },
+                        { BlockFace.South, new() { UVs = [0,0,16,16], Rotation=90 } },
+                        { BlockFace.East, new() { UVs = [0,0,16,16], Rotation=90 } },
+                        { BlockFace.West, new() { UVs = [0,0,16,16], Rotation=90 } },
+                    }
+                }
+            }
         };
-        foreach (var (face, todo) in facesToDo)
+        ModelData cross_block = new ModelData
         {
-            if (!todo)
-                continue;
-            model.AddFace(face, GenerateQuad(face, from, to, new float[] {8f, 5f, 14f, 11f}));
+            Elements = new List<ModelElement>()
+            {
+                new ModelElement
+                {
+                    Rotation = new ModelElement.ElementRotation()
+                    { 
+                        Angle = 45, Axis = "y", Origin = [8,8,8], Rescale = true 
+                    },
+                    From = [0.8f,0,8], To = [15.2f,16,8],
+                    Faces = new()
+                    {
+                        { BlockFace.North, new() { UVs = [0,0,16,16] } },
+                        { BlockFace.South, new() { UVs = [0,0,16,16] } },
+                    }
+                },
+                new ModelElement
+                {
+                    Rotation = new ModelElement.ElementRotation() 
+                    { 
+                        Angle = 45, Axis = "y", Origin = [8,8,8], Rescale = true 
+                    },
+                    From = [8,0,0.8f], To = [8,16,15.2f],
+                    Faces = new()
+                    {
+                        { BlockFace.East, new() { UVs = [0,0,16,16] } },
+                        { BlockFace.West, new() { UVs = [0,0,16,16] } },
+                    }
+                }
+            }
+        };
+
+        BlockModel model = new BlockModel();
+        // cross_block
+        // full_block
+        ModelData toModel = full_block;
+
+        foreach (var element in toModel.Elements)
+        {
+            GenerateElement(model, element);
         }
         return model;
     }
-    public static BakedQuad GenerateQuad(BlockFace face, float[] from, float[] to, float[] uvs)
+    private static void GenerateElement(BlockModel model, ModelElement element)
+    {
+        ModelElement.ElementRotation? rot = element.Rotation;
+        foreach (var (face, data) in element.Faces)
+        {
+            model.AddFace(face, GenerateQuad(face, element.From, element.To, data.UVs, data.Rotation, rot));
+        }
+    }
+    public static BakedQuad GenerateQuad(BlockFace face, float[] from, float[] to, float[] uvs, int faceRotation, ModelElement.ElementRotation? elementRotation)
     {
         Vector3 minV = new Vector3(from[0] / 16f, from[1] / 16f, from[2] / 16f);
         Vector3 maxV = new Vector3(to[0] / 16f, to[1] / 16f, to[2] / 16f);
@@ -108,10 +163,10 @@ public class BlockModel
             _ => throw new ArgumentOutOfRangeException(nameof(face))
         };
 
-        Vector2[] faceUvs; 
+        Vector2[] defaultFaceUVs;
         if (uvs == null || uvs.Length != 4)
         {
-            faceUvs = face switch
+            defaultFaceUVs = face switch
             {
                 BlockFace.Up => [
                     new(vertices[0].X, 1f - vertices[0].Z),
@@ -154,12 +209,28 @@ public class BlockModel
         }
         else
         {
-            faceUvs = [
+            defaultFaceUVs = [
                 new(uvs[0] / 16f, 1f - uvs[3] / 16f),
                 new(uvs[2] / 16f, 1f - uvs[3] / 16f),
                 new(uvs[2] / 16f, 1f - uvs[1] / 16f),
                 new(uvs[0] / 16f, 1f - uvs[1] / 16f)
             ];
+        }
+
+        int uvIndexOffset = faceRotation / 90;
+        Vector2[] faceUvs = [
+            defaultFaceUVs[(uvIndexOffset + 0) % 4],
+            defaultFaceUVs[(uvIndexOffset + 1) % 4],
+            defaultFaceUVs[(uvIndexOffset + 2) % 4],
+            defaultFaceUVs[(uvIndexOffset + 3) % 4],
+        ];
+
+        if (elementRotation != null)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                vertices[i] = RotateElementVertex(vertices[i], elementRotation.Value);
+            }
         }
 
         void SimulateTextureAtlasLookup()
@@ -183,5 +254,37 @@ public class BlockModel
         SimulateTextureAtlasLookup();
 
         return new BakedQuad(vertices, faceUvs);
+    }
+
+    private static Vector3 RotateElementVertex(Vector3 vertex, ModelElement.ElementRotation rotation)
+    {
+        Vector3 origin = new Vector3(rotation.Origin[0], rotation.Origin[1], rotation.Origin[2]) / 16f;
+        Vector3 pos = vertex - origin;
+
+        char axis = string.IsNullOrEmpty(rotation.Axis) ? 'y' : char.ToLowerInvariant(rotation.Axis[0]);
+
+        float radians = rotation.Angle * (MathF.PI / 180f);
+        if (rotation.Rescale && rotation.Angle != 0f)
+        {
+            float scale = 1f / MathF.Cos(radians);
+
+            pos = axis switch
+            {
+                'x' => new Vector3(pos.X, pos.Y * scale, pos.Z * scale),
+                'z' => new Vector3(pos.X * scale, pos.Y * scale, pos.Z),
+                _ => new Vector3(pos.X * scale, pos.Y, pos.Z * scale) // 'y' is default
+            };
+        }
+
+        Vector3 axisVector = axis switch
+        {
+            'x' => Vector3.UnitX,
+            'z' => Vector3.UnitZ,
+            _ => Vector3.UnitY
+        };
+
+        Quaternion q = Quaternion.CreateFromAxisAngle(axisVector, radians);
+
+        return Vector3.Transform(pos, q) + origin;
     }
 }
