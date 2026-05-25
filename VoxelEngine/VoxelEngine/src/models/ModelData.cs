@@ -23,6 +23,7 @@ public struct ModelData
         {
             public float[] UVs { get; set; }
             public int Rotation { get; set; }
+            public string Texture { get; set; }
         }
     }
 }

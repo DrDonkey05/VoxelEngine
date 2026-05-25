@@ -25,7 +25,7 @@ public class Program
 
     private static Shader shader;
     private static Camera camera;
-    private static Texture2D texture;
+    private static TextureAtlas atlas;
     private static BlockRenderer blockRenderer;
     private static Mesh mesh;
 
@@ -44,7 +44,7 @@ public class Program
             gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             gl.ClearColor(Color.CornflowerBlue);
 
-            blockRenderer.Render(mesh, camera, texture);
+            blockRenderer.Render(mesh, camera, atlas.Texture);
         };
 
         window.Update += (double dt) =>
@@ -93,11 +93,19 @@ public class Program
         camera = new Camera(aspectRatio);
         camera.Position = new Vector3(0.0f, 2.0f, 5.0f);
 
-        texture = Texture2D.LoadTexture(gl, "./assets/textures/block/rots.png");
+        atlas = new TextureAtlas(gl);
+        atlas.Add("./assets/textures/block/up.png");
+        atlas.Add("./assets/textures/block/down.png");
+        atlas.Add("./assets/textures/block/north.png");
+        atlas.Add("./assets/textures/block/south.png");
+        atlas.Add("./assets/textures/block/east.png");
+        atlas.Add("./assets/textures/block/west.png");
+        atlas.Add("./assets/textures/block/up2.png");
+        atlas.Stitch();
 
         shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
         blockRenderer = new BlockRenderer(gl, shader);
-        BlockModel model = BlockModelBakery.CreateModel();
+        BlockModel model = BlockModelBakery.CreateModel(atlas);
         List<Vertex> vertices = new List<Vertex>();
         List<uint> indices = new List<uint>();
         MeshBuilder.BuildMesh(model, vertices, indices);

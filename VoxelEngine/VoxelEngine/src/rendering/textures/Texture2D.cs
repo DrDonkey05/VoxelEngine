@@ -11,7 +11,7 @@ public class Texture2D : IDisposable
     public int Width { get; }
     public int Height { get; }
 
-    private Texture2D(GL gl, byte[] pixelData, int width, int height)
+    public Texture2D(GL gl, byte[] pixelData, int width, int height)
     {
         this.gl = gl;
         this.Width = width;

@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using VoxelEngine.src.rendering.textures;
 using static VoxelEngine.src.models.ModelData;
 using static VoxelEngine.src.models.ModelData.ModelElement;
 
@@ -28,7 +29,7 @@ public static class BlockModelBakery
     //    new Vector2(0, 1),
     //};
 
-    public static BlockModel CreateModel()
+    public static BlockModel CreateModel(TextureAtlas atlas)
     {
         float[] from = { 5f, 5f, 5f };
         float[] to = { 11f, 11f, 11f };
@@ -42,12 +43,12 @@ public static class BlockModelBakery
                     From = [0,0,0], To = [16,16,16],
                     Faces = new()
                     {
-                        { BlockFace.Up, new() { UVs = [0,0,16,16], Rotation=0 } },
-                        { BlockFace.Down, new() { UVs = [0,0,16,16], Rotation=0 } },
-                        { BlockFace.North, new() { UVs = [0,0,16,16], Rotation=0 } },
-                        { BlockFace.South, new() { UVs = [0,0,16,16], Rotation=0 } },
-                        { BlockFace.East, new() { UVs = [0,0,16,16], Rotation=0 } },
-                        { BlockFace.West, new() { UVs = [0,0,16,16], Rotation=0 } },
+                        { BlockFace.Up, new() { UVs = [0,0,8,8], Texture = "block/up2" } },
+                        { BlockFace.Down, new() { UVs = [0,0,16,16], Texture = "block/down" } },
+                        { BlockFace.North, new() { UVs = [0,0,16,16], Texture = "block/north" } },
+                        { BlockFace.South, new() { UVs = [0,0,16,16], Texture = "block/south" } },
+                        { BlockFace.East, new() { UVs = [0,0,16,16], Texture = "block/east" } },
+                        { BlockFace.West, new() { UVs = [0,0,16,16], Texture = "block/west" } },
                     }
                 }
             }
@@ -65,8 +66,8 @@ public static class BlockModelBakery
                     From = [0.8f,0,8], To = [15.2f,16,8],
                     Faces = new()
                     {
-                        { BlockFace.North, new() { UVs = [0,0,16,16] } },
-                        { BlockFace.South, new() { UVs = [0,0,16,16] } },
+                        { BlockFace.North, new() { UVs = [0,0,16,16], Texture = "block/north" } },
+                        { BlockFace.South, new() { UVs = [0,0,16,16], Texture = "block/south"  } },
                     }
                 },
                 new ModelElement
@@ -78,8 +79,8 @@ public static class BlockModelBakery
                     From = [8,0,0.8f], To = [8,16,15.2f],
                     Faces = new()
                     {
-                        { BlockFace.East, new() { UVs = [0,0,16,16] } },
-                        { BlockFace.West, new() { UVs = [0,0,16,16] } },
+                        { BlockFace.East, new() { UVs = [0,0,16,16], Texture = "block/east"  } },
+                        { BlockFace.West, new() { UVs = [0,0,16,16], Texture = "block/west"  } },
                     }
                 }
             }
@@ -119,17 +120,17 @@ public static class BlockModelBakery
 
         foreach (var element in state.Model.Elements)
         {
-            GenerateElement(state, element, model);
+            GenerateElement(state, element, model, atlas);
         }
         return model;
     }
 
-    private static void GenerateElement(StateData state, ModelElement element, BlockModel model)
+    private static void GenerateElement(StateData state, ModelElement element, BlockModel model, TextureAtlas atlas)
     {
         ModelElement.ElementRotation? rot = element.Rotation;
         foreach (var (face, data) in element.Faces)
         {
-            BakedQuad quad = GenerateQuad(face, element.From, element.To, data.UVs, data.Rotation, rot, state);
+            BakedQuad quad = GenerateQuad(face, element.From, element.To, data.UVs, data.Rotation, data.Texture, rot, state, atlas);
 
             BlockFace worldFace = face;
 
@@ -143,8 +144,8 @@ public static class BlockModelBakery
         }
     }
     public static BakedQuad GenerateQuad(BlockFace face, 
-        float[] from, float[] to, float[] uvs, int faceRotation, 
-        ModelElement.ElementRotation? elementRotation, StateData state)
+        float[] from, float[] to, float[] uvs, int faceRotation, string tex, 
+        ModelElement.ElementRotation? elementRotation, StateData state, TextureAtlas atlas)
     {
         Vector3 min = new Vector3(from[0], from[1], from[2]) / 16f;
         Vector3 max = new Vector3(to[0], to[1], to[2]) / 16f;
@@ -161,7 +162,7 @@ public static class BlockModelBakery
 
 
         // Simulating texture atlas lookup
-        SimulateTextureLookup(face, ref t0, ref t1, ref t2, ref t3);
+        GetAtlasUVs(face, atlas, tex, ref t0, ref t1, ref t2, ref t3);
 
 
         // Model Rotation
@@ -268,23 +269,13 @@ public static class BlockModelBakery
         vertex = Vector3.Transform(pos, q) + origin;
     }
 
-    private static void SimulateTextureLookup(BlockFace face, 
+    private static void GetAtlasUVs(BlockFace face, TextureAtlas atlas, string texId, 
         ref Vector2 t0, ref Vector2 t1, ref Vector2 t2, ref Vector2 t3)
     {
-        Vector2 factor = face switch
-        {
-            BlockFace.Up => new Vector2(0, 1),
-            BlockFace.Down => new Vector2(1, 1),
-            BlockFace.East => new Vector2(0, 0),
-            BlockFace.West => new Vector2(2, 1),
-            BlockFace.North => new Vector2(1, 0),
-            BlockFace.South => new Vector2(2, 0),
-            _ => throw new ArgumentOutOfRangeException(nameof(face))
-        };
-        t0 = new Vector2(t0.X / 3f + (1f / 3f) * factor.X, t0.Y / 2f + 0.5f * factor.Y);
-        t1 = new Vector2(t1.X / 3f + (1f / 3f) * factor.X, t1.Y / 2f + 0.5f * factor.Y);
-        t2 = new Vector2(t2.X / 3f + (1f / 3f) * factor.X, t2.Y / 2f + 0.5f * factor.Y);
-        t3 = new Vector2(t3.X / 3f + (1f / 3f) * factor.X, t3.Y / 2f + 0.5f * factor.Y);
+        t0 = atlas.Get(t0, texId);
+        t1 = atlas.Get(t1, texId);
+        t2 = atlas.Get(t2, texId);
+        t3 = atlas.Get(t3, texId);
     }
 
     private static void ApplyModelRotation(Vector3 center, float rotX, float rotY, 
