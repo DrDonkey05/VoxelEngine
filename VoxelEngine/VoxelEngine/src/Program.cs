@@ -97,7 +97,7 @@ public class Program
 
         shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
         blockRenderer = new BlockRenderer(gl, shader);
-        BlockModel model = BlockModel.CreateModel();
+        BlockModel model = BlockModelBakery.CreateModel();
         List<Vertex> vertices = new List<Vertex>();
         List<uint> indices = new List<uint>();
         MeshBuilder.BuildMesh(model, vertices, indices);

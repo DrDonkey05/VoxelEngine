@@ -26,3 +26,10 @@ public struct ModelData
         }
     }
 }
+
+public struct StateData
+{
+    public ModelData Model { get; set; }
+    public int X { get; set; }
+    public int Y { get; set; }
+}
