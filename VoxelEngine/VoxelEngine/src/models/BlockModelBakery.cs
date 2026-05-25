@@ -1,7 +1,9 @@
 ﻿using System.Numerics;
+using System.Runtime.Intrinsics;
+using Silk.NET.Maths;
 using VoxelEngine.src.rendering.textures;
 using static VoxelEngine.src.models.ModelData;
-using static VoxelEngine.src.models.ModelData.ModelElement;
+using static VoxelEngine.src.models.StateData;
 
 namespace VoxelEngine.src.models;
 
@@ -29,13 +31,16 @@ public static class BlockModelBakery
     //    new Vector2(0, 1),
     //};
 
-    public static BlockModel CreateModel(TextureAtlas atlas)
+    public static Dictionary<string, BlockModel> CachedModels = new();
+
+    public static void CreateModels(TextureAtlas atlas)
     {
         float[] from = { 5f, 5f, 5f };
         float[] to = { 11f, 11f, 11f };
 
         ModelData full_block = new ModelData
         {
+            Name = "cube",
             Elements = new List<ModelData.ModelElement>()
             {
                 new ModelData.ModelElement
@@ -55,6 +60,7 @@ public static class BlockModelBakery
         };
         ModelData cross_block = new ModelData
         {
+            Name = "cross",
             Elements = new List<ModelElement>()
             {
                 new ModelElement
@@ -88,56 +94,80 @@ public static class BlockModelBakery
 
         StateData full_state = new StateData
         {
-            Model = full_block,
-            X = 0,
-            Y = 0
-        };
-        StateData full_stateX = new StateData
-        {
-            Model = full_block,
-            X = 90,
-            Y = 0
-        };
-        StateData full_stateXY = new StateData
-        {
-            Model = full_block,
-            X = 90,
-            Y = 90
+            Variants = new()
+            {
+                {"", new()
+                    {
+                        Model = full_block
+                    }
+                },
+                {"axis=z", new()
+                    {
+                        Model = full_block,
+                        X = 90
+                    }
+                },
+                {"axis=x", new()
+                    {
+                        Model = full_block,
+                        X = 90,
+                        Y = 90
+                    }
+                }
+            }
         };
         StateData cross_state = new StateData
         {
-            Model = cross_block,
-            X = 0,
-            Y = 0
+            Variants = new()
+            {
+                {"", new()
+                    {
+                        Model = cross_block
+                    }
+                }
+            }
         };
 
-        BlockModel model = new BlockModel();
         // full_state
         // full_stateX
         // full_stateXY
         // cross_state
-        StateData state = full_stateXY;
-
-        foreach (var element in state.Model.Elements)
+        foreach (var state in new StateData[] { full_state, cross_state })
         {
-            GenerateElement(state, element, model, atlas);
+            foreach (var (key, variant) in state.Variants)
+            {
+                string identifier = $"block/{variant.Model.Name}{key}";
+
+                if (!CachedModels.ContainsKey(identifier))
+                {
+                    BlockModel model = new BlockModel(variant.Model.Name, key);
+
+                    foreach (var element in variant.Model.Elements)
+                    {
+                        GenerateElement(variant, element, model, atlas);
+                    }
+
+                    CachedModels.Add(identifier, model);
+                }
+            }
         }
-        return model;
     }
 
-    private static void GenerateElement(StateData state, ModelElement element, BlockModel model, TextureAtlas atlas)
+    private static void GenerateElement(StateVariant variant, ModelElement element, BlockModel model, TextureAtlas atlas)
     {
         ModelElement.ElementRotation? rot = element.Rotation;
         foreach (var (face, data) in element.Faces)
         {
-            BakedQuad quad = GenerateQuad(face, element.From, element.To, data.UVs, data.Rotation, data.Texture, rot, state, atlas);
+            BakedQuad quad = GenerateQuad(face, element.From, element.To, data.UVs, data.Rotation, data.Texture, rot, variant, atlas);
+
+            ApplyModelRotation(new Vector3(0.5f, 0.5f, 0.5f), variant.X, variant.Y, ref quad);
 
             BlockFace worldFace = face;
 
-            int xSteps = (state.X % 360) / 90;
+            int xSteps = (variant.X % 360) / 90;
             for (int i = 0; i < xSteps; i++) worldFace = worldFace.RotateX90();
 
-            int ySteps = (state.Y % 360) / 90;
+            int ySteps = (variant.Y % 360) / 90;
             for (int i = 0; i < ySteps; i++) worldFace = worldFace.RotateY90();
 
             model.AddFace(worldFace, quad);
@@ -145,7 +175,7 @@ public static class BlockModelBakery
     }
     public static BakedQuad GenerateQuad(BlockFace face, 
         float[] from, float[] to, float[] uvs, int faceRotation, string tex, 
-        ModelElement.ElementRotation? elementRotation, StateData state, TextureAtlas atlas)
+        ModelElement.ElementRotation? elementRotation, StateVariant state, TextureAtlas atlas)
     {
         Vector3 min = new Vector3(from[0], from[1], from[2]) / 16f;
         Vector3 max = new Vector3(to[0], to[1], to[2]) / 16f;
@@ -161,14 +191,8 @@ public static class BlockModelBakery
         RotateUVs(faceRotation, ref t0, ref t1, ref t2, ref t3);
 
 
-        // Simulating texture atlas lookup
+        // Get atlas UVs
         GetAtlasUVs(face, atlas, tex, ref t0, ref t1, ref t2, ref t3);
-
-
-        // Model Rotation
-        ApplyModelRotation(new Vector3(0.5f, 0.5f, 0.5f), state.X, state.Y,
-            ref v0, ref v1, ref v2, ref v3);
-
 
         return new BakedQuad([v0, v1, v2, v3], [t0, t1, t2, t3]);
     }
@@ -278,20 +302,18 @@ public static class BlockModelBakery
         t3 = atlas.Get(t3, texId);
     }
 
-    private static void ApplyModelRotation(Vector3 center, float rotX, float rotY, 
-        ref Vector3 v0, ref Vector3 v1, ref Vector3 v2, ref Vector3 v3)
+    private static void ApplyModelRotation(Vector3 center, float rotX, float rotY, ref BakedQuad quad)
     {
-        if (rotX != 0 || rotY != 0)
-        {
-            float radX = rotX * (MathF.PI / 180f);
-            float radY = rotY * (MathF.PI / 180f);
-            Quaternion blockRot = Quaternion.CreateFromAxisAngle(Vector3.UnitY, radY)
-                                * Quaternion.CreateFromAxisAngle(Vector3.UnitX, radX);
+        if (rotX == 0 && rotY == 0) return;
 
-            v0 = Vector3.Transform(v0 - center, blockRot) + center;
-            v1 = Vector3.Transform(v1 - center, blockRot) + center;
-            v2 = Vector3.Transform(v2 - center, blockRot) + center;
-            v3 = Vector3.Transform(v3 - center, blockRot) + center;
+        float radX = rotX * (MathF.PI / 180f);
+        float radY = rotY * (MathF.PI / 180f);
+        Quaternion blockRot = Quaternion.CreateFromAxisAngle(-Vector3.UnitY, radY)
+                            * Quaternion.CreateFromAxisAngle(Vector3.UnitX, radX);
+
+        for (int i = 0; i < 4; i++)
+        {
+            quad.Positions[i] = Vector3.Transform(quad.Positions[i] - center, blockRot) + center;
         }
     }
 }

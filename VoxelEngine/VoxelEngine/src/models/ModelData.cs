@@ -2,6 +2,8 @@
 
 public struct ModelData
 {
+    public string Name { get; set; }
+    public Dictionary<string, string> Textures { get; set; }
     public List<ModelElement> Elements { get; set; }
 
     public struct ModelElement
@@ -30,7 +32,12 @@ public struct ModelData
 
 public struct StateData
 {
-    public ModelData Model { get; set; }
-    public int X { get; set; }
-    public int Y { get; set; }
+    public Dictionary<string, StateVariant> Variants { get; set; }
+
+    public struct StateVariant
+    {
+        public ModelData Model { get; set; }
+        public int X { get; set; }
+        public int Y { get; set; }
+    }
 }

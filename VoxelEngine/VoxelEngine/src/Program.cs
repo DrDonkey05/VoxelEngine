@@ -29,6 +29,10 @@ public class Program
     private static BlockRenderer blockRenderer;
     private static Mesh mesh;
 
+    private static BlockModel[] blockModels;
+    private static int modelIndex = 0;
+    private static bool prev1Down, prev2Down;
+
     public static void Main(string[] args)
     {
         WindowOptions options = WindowOptions.Default;
@@ -105,10 +109,18 @@ public class Program
 
         shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
         blockRenderer = new BlockRenderer(gl, shader);
-        BlockModel model = BlockModelBakery.CreateModel(atlas);
+        BlockModelBakery.CreateModels(atlas);
+        blockModels = BlockModelBakery.CachedModels.Values.ToArray();
+        BlockModel model = blockModels[0];
+        BuildMesh(model);
+    }
+
+    private static void BuildMesh(BlockModel model)
+    {
         List<Vertex> vertices = new List<Vertex>();
         List<uint> indices = new List<uint>();
         MeshBuilder.BuildMesh(model, vertices, indices);
+        mesh?.Dispose();
         mesh = new Mesh(gl, vertices.ToArray(), indices.ToArray());
     }
 
@@ -141,6 +153,32 @@ public class Program
         // Close window instantly on Escape
         if (keyboard.IsKeyPressed(Key.Escape))
             window.Close();
+
+        if (keyboard.IsKeyPressed(Key.Number1))
+        {
+            if (!prev1Down)
+            {
+                modelIndex -= 1;
+                modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
+                BuildMesh(blockModels[modelIndex]);
+            }
+            prev1Down = true;
+        }
+        else
+            prev1Down = false;
+
+        if (keyboard.IsKeyPressed(Key.Number2))
+        {
+            if (!prev2Down)
+            {
+                modelIndex += 1;
+                modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
+                BuildMesh(blockModels[modelIndex]);
+            }
+            prev2Down = true;
+        }
+        else
+            prev2Down = false;
 
         camera.Position = newPosition;
     }
