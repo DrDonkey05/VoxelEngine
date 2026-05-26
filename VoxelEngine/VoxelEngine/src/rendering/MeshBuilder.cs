@@ -1,4 +1,5 @@
-﻿using VoxelEngine.src.models;
+﻿using System.Numerics;
+using VoxelEngine.src.models;
 
 namespace VoxelEngine.src.rendering;
 
@@ -8,24 +9,30 @@ public class MeshBuilder
     {
         uint offset = 0;
 
-        foreach (var (face, quad) in model.Faces)
+        Vector3 tintColor = new Vector3(0.65f, 1.0f, 0.45f);
+
+        foreach (var (face, quads) in model.Faces)
         {
-            for (int i = 0; i < 4; i++)
+            foreach (var quad in quads)
             {
-                vertices.Add(new Vertex(
-                    quad.Positions[i],
-                    quad.TexCoords[i]
-                ));
+                for (int i = 0; i < 4; i++)
+                {
+                    vertices.Add(new Vertex(
+                        quad.Positions[i],
+                        quad.TexCoords[i],
+                        quad.Tint == 1 ? tintColor : Vector3.One
+                    ));
+                }
+
+                indices.Add(offset + 0);
+                indices.Add(offset + 1);
+                indices.Add(offset + 2);
+                indices.Add(offset + 2);
+                indices.Add(offset + 3);
+                indices.Add(offset + 0);
+
+                offset += 4;
             }
-
-            indices.Add(offset + 0);
-            indices.Add(offset + 1);
-            indices.Add(offset + 2);
-            indices.Add(offset + 2);
-            indices.Add(offset + 3);
-            indices.Add(offset + 0);
-
-            offset += 4;
         }
     }
 }

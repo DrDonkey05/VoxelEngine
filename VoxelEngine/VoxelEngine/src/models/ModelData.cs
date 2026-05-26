@@ -2,7 +2,7 @@
 
 public struct ModelData
 {
-    public string Name { get; set; }
+    public string Parent { get; set; }
     public Dictionary<string, string> Textures { get; set; }
     public List<ModelElement> Elements { get; set; }
 
@@ -26,6 +26,7 @@ public struct ModelData
             public float[] UVs { get; set; }
             public int Rotation { get; set; }
             public string Texture { get; set; }
+            public int TintIndex { get; set; }
         }
     }
 }
@@ -36,7 +37,7 @@ public struct StateData
 
     public struct StateVariant
     {
-        public ModelData Model { get; set; }
+        public string Model { get; set; }
         public int X { get; set; }
         public int Y { get; set; }
     }

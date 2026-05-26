@@ -37,8 +37,10 @@ public unsafe class Mesh : IDisposable
         uint stride = (uint)sizeof(Vertex);
         gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, (void*)0);
         gl.EnableVertexAttribArray(0);
-        gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, stride, (void*)sizeof(Vector3));
+        gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, stride, (void*)(3 * sizeof(float)));
         gl.EnableVertexAttribArray(1);
+        gl.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, stride, (void*)(5 * sizeof(float)));
+        gl.EnableVertexAttribArray(2);
 
         gl.BindVertexArray(0);
     }

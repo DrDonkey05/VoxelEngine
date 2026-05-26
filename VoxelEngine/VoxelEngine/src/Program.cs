@@ -46,7 +46,6 @@ public class Program
         window.Render += (double dt) =>
         {
             gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-            gl.ClearColor(Color.CornflowerBlue);
 
             blockRenderer.Render(mesh, camera, atlas.Texture);
         };
@@ -75,13 +74,16 @@ public class Program
     {
         gl = window.CreateOpenGL();
 
-        gl.Enable(EnableCap.DepthTest);
+        gl.ClearColor(Color.CornflowerBlue);
+
         gl.Enable(EnableCap.CullFace);
         gl.CullFace(TriangleFace.Back);
-        gl.DepthFunc(DepthFunction.Lequal);
+        
         gl.Enable(EnableCap.Blend);
         gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
+        gl.Enable(EnableCap.DepthTest);
+        gl.DepthFunc(DepthFunction.Lequal);
 
         IInputContext input = window.CreateInput();
         keyboard = input.Keyboards[0];
@@ -105,6 +107,7 @@ public class Program
         atlas.Add("./assets/textures/block/east.png");
         atlas.Add("./assets/textures/block/west.png");
         atlas.Add("./assets/textures/block/up2.png");
+        atlas.Add("./assets/textures/block/side_overlay.png");
         atlas.Stitch();
 
         shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");

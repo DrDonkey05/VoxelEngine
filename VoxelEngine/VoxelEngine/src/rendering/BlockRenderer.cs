@@ -23,10 +23,11 @@ public class BlockRenderer
         shader.Use();
         shader.SetUniform("uView", camera.ViewMatrix);
         shader.SetUniform("uProjection", camera.ProjectionMatrix);
-        shader.SetUniform("uModel", model);
 
         texture.Bind();
         shader.SetUniform("uTexture", 0);
+
+        shader.SetUniform("uModel", model);
 
         mesh.Bind();
 

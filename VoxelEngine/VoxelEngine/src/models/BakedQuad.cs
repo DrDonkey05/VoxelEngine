@@ -13,10 +13,12 @@ public struct BakedQuad
 {
     public Vector3[] Positions { get; }
     public Vector2[] TexCoords { get; }
+    public int Tint { get; }
 
-    public BakedQuad(Vector3[] positions, Vector2[] texCoords)
+    public BakedQuad(Vector3[] positions, Vector2[] texCoords, int tint)
     {
         this.Positions = positions;
         this.TexCoords = texCoords;
+        this.Tint = tint;
     }
 }
