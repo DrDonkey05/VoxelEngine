@@ -7,6 +7,7 @@ using Silk.NET.Windowing;
 using VoxelEngine.src.models;
 using VoxelEngine.src.rendering;
 using VoxelEngine.src.rendering.textures;
+using VoxelEngine.src.world;
 using Shader = VoxelEngine.src.rendering.Shader;
 
 namespace VoxelEngine.src;
@@ -27,7 +28,7 @@ public class Program
     private static Camera camera;
     private static TextureAtlas atlas;
     private static BlockRenderer blockRenderer;
-    private static Mesh mesh;
+    private static Chunk chunk;
 
     private static BlockModel[] blockModels;
     private static int modelIndex = 0;
@@ -54,14 +55,14 @@ public class Program
         {
             gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-            blockRenderer.Render(tick, mesh, camera, atlas.Texture);
+            blockRenderer.Render(tick, chunk.WorldPosition, chunk.Mesh, camera, atlas.Texture);
         };
 
         window.Update += OnUpdate;
 
         window.Closing += () =>
         {
-            mesh?.Dispose();
+            chunk.Mesh?.Dispose();
         };
 
         window.Resize += (size) =>
@@ -135,18 +136,9 @@ public class Program
         shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
         blockRenderer = new BlockRenderer(gl, shader);
         BlockModelBakery.CreateModels(atlas);
+        chunk = new Chunk(0, 0, 0);
         blockModels = BlockModelBakery.CachedModels.Values.ToArray();
-        BlockModel model = blockModels[0];
-        BuildMesh(model);
-    }
-
-    private static void BuildMesh(BlockModel model)
-    {
-        List<Vertex> vertices = new List<Vertex>();
-        List<uint> indices = new List<uint>();
-        MeshBuilder.BuildMesh(model, vertices, indices);
-        mesh?.Dispose();
-        mesh = new Mesh(gl, vertices.ToArray(), indices.ToArray());
+        chunk.BuildMesh(gl, blockModels[0]);
     }
 
     private static void HandleKeyboard(double deltaTime)
@@ -185,7 +177,7 @@ public class Program
             {
                 modelIndex -= 1;
                 modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
-                BuildMesh(blockModels[modelIndex]);
+                chunk.BuildMesh(gl, blockModels[modelIndex]);
             }
             prev1Down = true;
         }
@@ -198,7 +190,7 @@ public class Program
             {
                 modelIndex += 1;
                 modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
-                BuildMesh(blockModels[modelIndex]);
+                chunk.BuildMesh(gl, blockModels[modelIndex]);
             }
             prev2Down = true;
         }

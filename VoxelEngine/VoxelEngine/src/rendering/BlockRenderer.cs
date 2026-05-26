@@ -16,7 +16,7 @@ public class BlockRenderer
         this.shader = shader;
     }
 
-    public unsafe void Render(int tick, Mesh mesh, Camera camera, Texture2D texture)
+    public unsafe void Render(int tick, Vector3 position, Mesh mesh, Camera camera, Texture2D texture)
     {
         Matrix4x4 model = Matrix4x4.CreateTranslation(Vector3.Zero);
 

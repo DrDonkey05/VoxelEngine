@@ -28,9 +28,9 @@ public class JsonModel
             public float[] UV { get; set; } = new float[0];
             [JsonPropertyName("texture")]
             public string Texture { get; set; } = string.Empty;
-            [JsonPropertyName("tint_index")]
+            [JsonPropertyName("tintindex")]
             public int TintIndex { get; set; } = -1;
-            [JsonPropertyName("cull_face")]
+            [JsonPropertyName("cullface")]
             public string CullFace { get; set; } = string.Empty;
         }
         public class ElementRotation

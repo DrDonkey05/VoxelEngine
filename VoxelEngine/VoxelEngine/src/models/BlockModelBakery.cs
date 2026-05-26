@@ -98,7 +98,7 @@ public static class BlockModelBakery
         {
             foreach (var (key, variant) in state.Variants)
             {
-                string identifier = $"block/{variant.Model}{key}";
+                string identifier = $"{variant.Model}{key}";
 
                 LoadModelChain(variant.Model, fetchedModels, modelChain);
                 Dictionary<string, string> textureMap = ResolveAndBuildTextureMap(modelChain);
@@ -148,7 +148,6 @@ public static class BlockModelBakery
             return null;
         }
     }
-
     private static void LoadModelChain(string startModel, Dictionary<string, JsonModel> models, List<JsonModel> outChain)
     {
         outChain.Clear();
@@ -170,7 +169,6 @@ public static class BlockModelBakery
             currentModel = model.Parent;
         }
     }
-
     private static Dictionary<string, string> ResolveAndBuildTextureMap(List<JsonModel> modelParentChain)
     {
         Dictionary<string, string> map = new(StringComparer.OrdinalIgnoreCase);
@@ -220,23 +218,38 @@ public static class BlockModelBakery
         {
             string texKey = data.Texture[0] == '#' ? data.Texture.Substring(1) : data.Texture;
 
-            BlockFace blockFace = BlockFaceExt.FromString(face);
-            BakedQuad quad = GenerateQuad(blockFace, element.From, element.To, data.UV, 0 /*data.Rotation*/, textureMap.GetValueOrDefault(texKey, texKey), data.TintIndex, rot, variant, atlas);
+            BlockFace? blockFace = BlockFaceExt.FromString(face);
+            if (blockFace == null)
+                throw new Exception($"{face} is not a valid Block Face");
+            BlockFace? cullFace = BlockFaceExt.FromString(data.CullFace);
+
+            BlockFace rotatedFace = blockFace.Value;
+            int xSteps = (variant.X % 360) / 90;
+            for (int i = 0; i < xSteps; i++) 
+            {     
+                rotatedFace = rotatedFace.RotateX90();
+                if (cullFace != null) cullFace = cullFace.Value.RotateX90();
+            }
+
+            int ySteps = (variant.Y % 360) / 90;
+            for (int i = 0; i < ySteps; i++) 
+            { 
+                rotatedFace = rotatedFace.RotateY90();
+                if (cullFace != null) cullFace = cullFace.Value.RotateY90();
+            }
+
+            BakedQuad quad = GenerateQuad(blockFace.Value,
+                element.From, element.To, data.UV, textureMap.GetValueOrDefault(texKey, texKey),
+                data.TintIndex, cullFace, rot, variant, atlas);
 
             ApplyModelRotation(new Vector3(0.5f, 0.5f, 0.5f), variant.X, variant.Y, ref quad);
 
-            int xSteps = (variant.X % 360) / 90;
-            for (int i = 0; i < xSteps; i++) blockFace = blockFace.RotateX90();
-
-            int ySteps = (variant.Y % 360) / 90;
-            for (int i = 0; i < ySteps; i++) blockFace = blockFace.RotateY90();
-
-            model.AddFace(blockFace, quad);
+            model.AddFace(rotatedFace, quad);
         }
     }
 
-    public static BakedQuad GenerateQuad(BlockFace face,
-        float[] from, float[] to, float[] uvs, int faceRotation, string tex, int tintInd,
+    public static BakedQuad GenerateQuad(BlockFace face, //int faceRotation,
+        float[] from, float[] to, float[] uvs, string tex, int tintInd, BlockFace? cullFace,
         JsonModel.Element.ElementRotation? elementRotation, StateData.Variant state, TextureAtlas atlas)
     {
         Vector3 min = new Vector3(from[0], from[1], from[2]) / 16f;
@@ -253,7 +266,7 @@ public static class BlockModelBakery
 
         Vector4 animData = atlas.GetAnimationData(tex);
 
-        return new BakedQuad([v0, v1, v2, v3], animData, tintInd);
+        return new BakedQuad([v0, v1, v2, v3], animData, tintInd, cullFace);
     }
 
     private static void CalculateUVs(BlockFace face, int faceRotation, float[] uvs,

@@ -1,4 +1,6 @@
-﻿namespace VoxelEngine.src.models;
+﻿using System.Numerics;
+
+namespace VoxelEngine.src.models;
 
 public enum BlockFace
 {
@@ -24,6 +26,7 @@ public static class BlockFaceExt
         BlockFace.North => BlockFace.Up,
         _ => face // East and West stay on their axis but rotate in place
     };
+
     public static BlockFace RotateY90(this BlockFace face) => face switch
     {
         BlockFace.North => BlockFace.East,
@@ -32,6 +35,7 @@ public static class BlockFaceExt
         BlockFace.West => BlockFace.North,
         _ => face // Up and Down stay on their axis
     };
+
     public static BlockFace RotateZ90(this BlockFace face) => face switch
     {
         BlockFace.Up => BlockFace.West,
@@ -40,6 +44,7 @@ public static class BlockFaceExt
         BlockFace.Down => BlockFace.East,
         _ => face // North and South stay on their axis
     };
+
     public static string ToLower(this BlockFace face)
     {
         return face switch
@@ -53,7 +58,8 @@ public static class BlockFaceExt
             _ => "up"
         };
     }
-    public static BlockFace FromString(string str)
+
+    public static BlockFace? FromString(string str)
     {
         return str switch
         {
@@ -63,7 +69,21 @@ public static class BlockFaceExt
             "south" => BlockFace.South,
             "east" => BlockFace.East,
             "west" => BlockFace.West,
-            _ => throw new Exception($"{str} not a block face!")
+            _ => null
+        };
+    }
+
+    public static Vector3 Normal(this BlockFace face)
+    {
+        return face switch
+        {
+            BlockFace.Up => Vector3.UnitY,
+            BlockFace.Down => -Vector3.UnitY,
+            BlockFace.North => -Vector3.UnitZ,
+            BlockFace.South => Vector3.UnitZ,
+            BlockFace.East => Vector3.UnitX,
+            BlockFace.West => -Vector3.UnitX,
+            _ => throw new Exception(nameof(face))
         };
     }
 }
