@@ -35,12 +35,26 @@ public unsafe class Mesh : IDisposable
         }
 
         uint stride = (uint)sizeof(Vertex);
-        gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, (void*)0);
+        int size = 0;
+        // VERTEX POS
+        gl.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, stride, (void*)size);
         gl.EnableVertexAttribArray(0);
-        gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, stride, (void*)(3 * sizeof(float)));
+        size += 3 * sizeof(float);
+
+        // TEX BOUNDS
+        gl.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, stride, (void*)size);
         gl.EnableVertexAttribArray(1);
-        gl.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, stride, (void*)(5 * sizeof(float)));
+        size += 3 * sizeof(float);
+
+        // PACKED ANIM DATA
+        gl.VertexAttribPointer(2, 1, VertexAttribPointerType.Float, false, stride, (void*)size);
         gl.EnableVertexAttribArray(2);
+        size += 1 * sizeof(int);
+
+        // COLOR
+        gl.VertexAttribPointer(3, 3, VertexAttribPointerType.Float, false, stride, (void*)size);
+        gl.EnableVertexAttribArray(3);
+        size += 3 * sizeof(float);
 
         gl.BindVertexArray(0);
     }

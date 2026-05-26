@@ -1,7 +1,4 @@
 ﻿using System.Numerics;
-using System.Reflection;
-using System.Runtime.Intrinsics;
-using Silk.NET.Maths;
 using VoxelEngine.src.rendering.textures;
 using static VoxelEngine.src.models.ModelData;
 using static VoxelEngine.src.models.StateData;
@@ -139,12 +136,20 @@ public static class BlockModelBakery
                     From = [0,0,0], To = [16,16,16],
                     Faces = new()
                     {
-                        { BlockFace.East, new() { UVs = [0,0,16,16], Texture = "block/side_overlay", TintIndex = 1  } },
-                        { BlockFace.West, new() { UVs = [0,0,16,16], Texture = "block/side_overlay", TintIndex = 1  } },
-                        { BlockFace.North, new() { UVs = [0,0,16,16], Texture = "block/side_overlay", TintIndex = 1  } },
-                        { BlockFace.South, new() { UVs = [0,0,16,16], Texture = "block/side_overlay", TintIndex = 1  } },
+                        { BlockFace.East, new() { UVs = [0,0,16,16], Texture = "block/top_left_overlay", TintIndex = 1  } },
+                        { BlockFace.West, new() { UVs = [0,0,16,16], Texture = "block/top_left_overlay", TintIndex = 1  } },
+                        { BlockFace.North, new() { UVs = [0,0,16,16], Texture = "block/top_left_overlay", TintIndex = 1  } },
+                        { BlockFace.South, new() { UVs = [0,0,16,16], Texture = "block/top_left_overlay", TintIndex = 1  } },
                     }
                 }
+            }
+        };
+        ModelData animated_block = new ModelData
+        {
+            Parent = "block/cube_all",
+            Textures = new()
+            {
+                { "all", "block/animated" }
             }
         };
 
@@ -156,6 +161,7 @@ public static class BlockModelBakery
             { "block/up_block", up_block },
             { "block/cross_block", cross_block },
             { "block/layered_block", layered_block },
+            { "block/animated_block", animated_block },
         };
 
         StateData full_state = new StateData
@@ -204,9 +210,20 @@ public static class BlockModelBakery
                 }
             }
         };
+        StateData animated_state = new StateData
+        {
+            Variants = new()
+            {
+                {"", new()
+                    {
+                        Model = "block/animated_block"
+                    }
+                }
+            }
+        };
 
         List<ModelData> modelChain = new(8);
-        foreach (var state in new StateData[] { full_state, cross_state, layered_state })
+        foreach (var state in new StateData[] { full_state, cross_state, layered_state, animated_state })
         {
             foreach (var (key, variant) in state.Variants)
             {
@@ -214,9 +231,16 @@ public static class BlockModelBakery
 
                 LoadModelChain(variant.Model, models, modelChain);
                 Dictionary<string, string> textureMap = ResolveAndBuildTextureMap(modelChain);
-                List<ModelElement> activeElements = modelChain.
-                    Where(x => x.Elements != null && x.Elements.Count > 0).
-                    FirstOrDefault().Elements;
+                List<ModelElement>? activeElements = null;
+                for (int i = 0; i < modelChain.Count; i++)
+                {
+                    if (modelChain[i].Elements != null && modelChain[i].Elements.Count > 0)
+                    {
+                        activeElements = modelChain[i].Elements;
+                        break;
+                    }
+                }
+                if (activeElements == null) continue;
 
                 BlockModel model = new BlockModel(variant.Model, key);
                 foreach (var element in activeElements)
@@ -290,7 +314,7 @@ public static class BlockModelBakery
     }
 
     private static void GenerateElement(
-        StateVariant variant, ModelElement element, BlockModel model, 
+        StateVariant variant, ModelElement element, BlockModel model,
         TextureAtlas atlas, Dictionary<string, string> textureMap)
     {
         ModelElement.ElementRotation? rot = element.Rotation;
@@ -312,8 +336,9 @@ public static class BlockModelBakery
             model.AddFace(worldFace, quad);
         }
     }
-    public static BakedQuad GenerateQuad(BlockFace face, 
-        float[] from, float[] to, float[] uvs, int faceRotation, string tex, int tintInd, 
+
+    public static BakedQuad GenerateQuad(BlockFace face,
+        float[] from, float[] to, float[] uvs, int faceRotation, string tex, int tintInd,
         ModelElement.ElementRotation? elementRotation, StateVariant state, TextureAtlas atlas)
     {
         Vector3 min = new Vector3(from[0], from[1], from[2]) / 16f;
@@ -323,20 +348,17 @@ public static class BlockModelBakery
         CalculateVertices(face, min, max, out Vector3 v0, out Vector3 v1, out Vector3 v2, out Vector3 v3);
         RotateVertices(elementRotation, ref v0, ref v1, ref v2, ref v3);
 
-
         // Calculates rotated UVs
-        CalculateUVs(face, faceRotation, uvs, v0, v1, v2, v3, 
-            out Vector2 t0, out Vector2 t1, out Vector2 t2, out Vector2 t3);
-        RotateUVs(faceRotation, ref t0, ref t1, ref t2, ref t3);
+        // CalculateUVs(face, faceRotation, uvs, v0, v1, v2, v3,
+        //     out Vector2 t0, out Vector2 t1, out Vector2 t2, out Vector2 t3);
+        // RotateUVs(faceRotation, ref t0, ref t1, ref t2, ref t3);
 
+        Vector4 animData = atlas.GetAnimationData(tex);
 
-        // Get atlas UVs
-        GetAtlasUVs(face, atlas, tex, ref t0, ref t1, ref t2, ref t3);
-
-        return new BakedQuad([v0, v1, v2, v3], [t0, t1, t2, t3], tintInd);
+        return new BakedQuad([v0, v1, v2, v3], animData, tintInd);
     }
 
-    private static void CalculateUVs(BlockFace face, int faceRotation, float[] uvs, 
+    private static void CalculateUVs(BlockFace face, int faceRotation, float[] uvs,
         Vector3 v0, Vector3 v1, Vector3 v2, Vector3 v3,
         out Vector2 uv0, out Vector2 uv1, out Vector2 uv2, out Vector2 uv3)
     {
@@ -430,15 +452,6 @@ public static class BlockModelBakery
         Quaternion q = Quaternion.CreateFromAxisAngle(axisVector, radians);
 
         vertex = Vector3.Transform(pos, q) + origin;
-    }
-
-    private static void GetAtlasUVs(BlockFace face, TextureAtlas atlas, string texId, 
-        ref Vector2 t0, ref Vector2 t1, ref Vector2 t2, ref Vector2 t3)
-    {
-        t0 = atlas.Get(t0, texId);
-        t1 = atlas.Get(t1, texId);
-        t2 = atlas.Get(t2, texId);
-        t3 = atlas.Get(t3, texId);
     }
 
     private static void ApplyModelRotation(Vector3 center, float rotX, float rotY, ref BakedQuad quad)

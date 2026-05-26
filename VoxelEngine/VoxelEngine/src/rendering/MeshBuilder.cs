@@ -19,7 +19,8 @@ public class MeshBuilder
                 {
                     vertices.Add(new Vertex(
                         quad.Positions[i],
-                        quad.TexCoords[i],
+                        new Vector3(quad.AnimData.X, quad.AnimData.Y, quad.AnimData.Z),
+                        BitConverter.SingleToInt32Bits(quad.AnimData.W),
                         quad.Tint == 1 ? tintColor : Vector3.One
                     ));
                 }

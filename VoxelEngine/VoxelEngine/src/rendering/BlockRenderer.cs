@@ -16,11 +16,13 @@ public class BlockRenderer
         this.shader = shader;
     }
 
-    public unsafe void Render(Mesh mesh, Camera camera, Texture2D texture)
+    public unsafe void Render(int tick, Mesh mesh, Camera camera, Texture2D texture)
     {
         Matrix4x4 model = Matrix4x4.CreateTranslation(Vector3.Zero);
 
         shader.Use();
+        shader.SetUniform("uGlobalFrameTicker", tick);
+
         shader.SetUniform("uView", camera.ViewMatrix);
         shader.SetUniform("uProjection", camera.ProjectionMatrix);
 

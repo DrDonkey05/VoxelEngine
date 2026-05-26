@@ -33,8 +33,15 @@ public class Program
     private static int modelIndex = 0;
     private static bool prev1Down, prev2Down;
 
+    private static double tickTimer = 0.0;
+    private static byte ticksPerSecond = 20;
+    private static int tick = 0;
+    private static double timePerTick = 0.0;
+
     public static void Main(string[] args)
     {
+        timePerTick = 1.0 / ticksPerSecond;
+
         WindowOptions options = WindowOptions.Default;
         options.Size = new Vector2D<int>(1280, 720);
         options.Title = "Voxel Engine";
@@ -47,14 +54,10 @@ public class Program
         {
             gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-            blockRenderer.Render(mesh, camera, atlas.Texture);
+            blockRenderer.Render(tick, mesh, camera, atlas.Texture);
         };
 
-        window.Update += (double dt) =>
-        {
-            HandleKeyboard(dt);
-            HandleMouse();
-        };
+        window.Update += OnUpdate;
 
         window.Closing += () =>
         {
@@ -68,6 +71,24 @@ public class Program
         };
 
         window.Run();
+    }
+
+    private static void OnUpdate(double dt)
+    {
+        tickTimer += dt;
+
+        while (tickTimer >= timePerTick)
+        {
+            tickTimer -= timePerTick;
+
+            if (tick == int.MaxValue)
+                tick = 0;
+            else
+                tick++;
+        }
+
+        HandleKeyboard(dt);
+        HandleMouse();
     }
 
     private static void OnLoad()
@@ -107,7 +128,8 @@ public class Program
         atlas.Add("./assets/textures/block/east.png");
         atlas.Add("./assets/textures/block/west.png");
         atlas.Add("./assets/textures/block/up2.png");
-        atlas.Add("./assets/textures/block/side_overlay.png");
+        atlas.Add("./assets/textures/block/top_left_overlay.png");
+        atlas.Add("./assets/textures/block/animated.png");
         atlas.Stitch();
 
         shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");

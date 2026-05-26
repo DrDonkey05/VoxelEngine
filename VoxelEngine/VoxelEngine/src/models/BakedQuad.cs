@@ -12,13 +12,13 @@ namespace VoxelEngine.src.models;
 public struct BakedQuad
 {
     public Vector3[] Positions { get; }
-    public Vector2[] TexCoords { get; }
+    public Vector4 AnimData { get; }
     public int Tint { get; }
 
-    public BakedQuad(Vector3[] positions, Vector2[] texCoords, int tint)
+    public BakedQuad(Vector3[] positions, Vector4 animData, int tint)
     {
         this.Positions = positions;
-        this.TexCoords = texCoords;
+        this.AnimData = animData;
         this.Tint = tint;
     }
 }
