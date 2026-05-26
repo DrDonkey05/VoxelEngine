@@ -17,6 +17,8 @@ public class MeshBuilder
             {
                 for (int i = 0; i < 4; i++)
                 {
+
+
                     vertices.Add(new Vertex(
                         quad.Positions[i],
                         new Vector3(quad.AnimData.X, quad.AnimData.Y, quad.AnimData.Z),

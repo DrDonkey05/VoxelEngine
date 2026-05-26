@@ -14,11 +14,11 @@ void main()
 {
     int totalFrames = fPackedAnimData & 0xFFFF;
     int delay = (fPackedAnimData >> 16) & 0xFFFF;
-
+    if (delay <= 0) delay = 1;
     int frameOffset = (uGlobalFrameTicker / delay) % totalFrames;
 
-    float localU = fract(fTexCoords.x);
-    float localV = 1.0 - fract(fTexCoords.y);
+    float localU = fTexCoords.x;
+    float localV = 1.0 - fTexCoords.y;
 
     float finalU = fTexBounds.x + (fTexBounds.z * float(frameOffset)) + (localU * fTexBounds.z);
     
