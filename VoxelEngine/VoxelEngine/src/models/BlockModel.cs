@@ -1,9 +1,4 @@
-﻿using System.Numerics;
-using System.Reflection;
-using VoxelEngine.src.rendering;
-using static VoxelEngine.src.models.ModelData;
-
-namespace VoxelEngine.src.models;
+﻿namespace VoxelEngine.src.models;
 
 public class BlockModel
 {

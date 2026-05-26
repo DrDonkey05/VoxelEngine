@@ -2,8 +2,6 @@
 using System.Text.Json;
 using VoxelEngine.src.json;
 using VoxelEngine.src.rendering.textures;
-using static VoxelEngine.src.models.ModelData;
-using static VoxelEngine.src.models.StateData;
 
 namespace VoxelEngine.src.models;
 
@@ -214,7 +212,7 @@ public static class BlockModelBakery
     }
 
     private static void GenerateElement(
-        StateVariant variant, JsonModel.Element element, BlockModel model,
+        StateData.Variant variant, JsonModel.Element element, BlockModel model,
         TextureAtlas atlas, Dictionary<string, string> textureMap)
     {
         JsonModel.Element.ElementRotation? rot = element.Rotation;
@@ -239,7 +237,7 @@ public static class BlockModelBakery
 
     public static BakedQuad GenerateQuad(BlockFace face,
         float[] from, float[] to, float[] uvs, int faceRotation, string tex, int tintInd,
-        JsonModel.Element.ElementRotation? elementRotation, StateVariant state, TextureAtlas atlas)
+        JsonModel.Element.ElementRotation? elementRotation, StateData.Variant state, TextureAtlas atlas)
     {
         Vector3 min = new Vector3(from[0], from[1], from[2]) / 16f;
         Vector3 max = new Vector3(to[0], to[1], to[2]) / 16f;
@@ -367,5 +365,17 @@ public static class BlockModelBakery
         {
             quad.Positions[i] = Vector3.Transform(quad.Positions[i] - center, blockRot) + center;
         }
+    }
+}
+
+public struct StateData
+{
+    public Dictionary<string, Variant> Variants;
+
+    public struct Variant
+    {
+        public string Model;
+        public int X;
+        public int Y;
     }
 }
