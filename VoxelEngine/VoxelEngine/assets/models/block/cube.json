@@ -9,7 +9,7 @@
         "north": { "texture": "#north" },
         "south": { "texture": "#south" },
         "east": { "texture": "#east" },
-        "west": { "texture": "#west" },
+        "west": { "texture": "#west" }
       }
     }
   ]

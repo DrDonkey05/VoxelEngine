@@ -1,4 +1,6 @@
 ﻿using System.Numerics;
+using System.Text.Json;
+using VoxelEngine.src.json;
 using VoxelEngine.src.rendering.textures;
 using static VoxelEngine.src.models.ModelData;
 using static VoxelEngine.src.models.StateData;
@@ -33,136 +35,7 @@ public static class BlockModelBakery
 
     public static void CreateModels(TextureAtlas atlas)
     {
-        ModelData cube = new ModelData
-        {
-            Elements = new List<ModelElement>()
-            {
-                new ModelElement
-                {
-                    From = [0,0,0], To = [16,16,16],
-                    Faces = new()
-                    {
-                        { BlockFace.Up, new() { Texture = "#up" } },
-                        { BlockFace.Down, new() { Texture = "#down" } },
-                        { BlockFace.North, new() { Texture = "#north" } },
-                        { BlockFace.South, new() { Texture = "#south" } },
-                        { BlockFace.East, new() { Texture = "#east" } },
-                        { BlockFace.West, new() { Texture = "#west" } },
-                    }
-                }
-            }
-        };
-        ModelData cube_all = new ModelData
-        {
-            Parent = "block/cube",
-            Textures = new()
-            {
-                { "up", "#all" },
-                { "down", "#all" },
-                { "north", "#all" },
-                { "south", "#all" },
-                { "east", "#all" },
-                { "west", "#all" },
-            }
-        };
-        ModelData cross = new ModelData
-        {
-            Elements = new List<ModelElement>()
-            {
-                new ModelElement
-                {
-                    Rotation = new ModelElement.ElementRotation()
-                    {
-                        Angle = 45, Axis = "y", Origin = [8,8,8], Rescale = true
-                    },
-                    From = [0.8f,0,8], To = [15.2f,16,8],
-                    Faces = new()
-                    {
-                        { BlockFace.North, new() { UVs = [0,0,16,16], Texture = "#cross" } },
-                        { BlockFace.South, new() { UVs = [0,0,16,16], Texture = "#cross"  } },
-                    }
-                },
-                new ModelElement
-                {
-                    Rotation = new ModelElement.ElementRotation()
-                    {
-                        Angle = 45, Axis = "y", Origin = [8,8,8], Rescale = true
-                    },
-                    From = [8,0,0.8f], To = [8,16,15.2f],
-                    Faces = new()
-                    {
-                        { BlockFace.East, new() { UVs = [0,0,16,16], Texture = "#cross"  } },
-                        { BlockFace.West, new() { UVs = [0,0,16,16], Texture = "#cross"  } },
-                    }
-                }
-            }
-        };
-
-        ModelData up_block = new ModelData
-        {
-            Parent = "block/cube_all",
-            Textures = new()
-            {
-                { "all", "block/up" }
-            }
-        };
-        ModelData cross_block = new ModelData
-        {
-            Parent = "block/cross",
-            Textures = new()
-            {
-                { "cross", "block/north" }
-            }
-        };
-        ModelData layered_block = new ModelData
-        {
-            Elements = new List<ModelElement>()
-            {
-                new ModelData.ModelElement
-                {
-                    From = [0,0,0], To = [16,16,16],
-                    Faces = new()
-                    {
-                        { BlockFace.Up, new() { UVs = [0,0,16,16], Texture = "block/up" } },
-                        { BlockFace.Down, new() { UVs = [0,0,16,16], Texture = "block/down" } },
-                        { BlockFace.North, new() { UVs = [0,0,16,16], Texture = "block/north" } },
-                        { BlockFace.South, new() { UVs = [0,0,16,16], Texture = "block/south" } },
-                        { BlockFace.East, new() { UVs = [0,0,16,16], Texture = "block/east" } },
-                        { BlockFace.West, new() { UVs = [0,0,16,16], Texture = "block/west" } },
-                    }
-                },
-                new ModelElement
-                {
-                    From = [0,0,0], To = [16,16,16],
-                    Faces = new()
-                    {
-                        { BlockFace.East, new() { UVs = [0,0,16,16], Texture = "block/top_left_overlay", TintIndex = 1  } },
-                        { BlockFace.West, new() { UVs = [0,0,16,16], Texture = "block/top_left_overlay", TintIndex = 1  } },
-                        { BlockFace.North, new() { UVs = [0,0,16,16], Texture = "block/top_left_overlay", TintIndex = 1  } },
-                        { BlockFace.South, new() { UVs = [0,0,16,16], Texture = "block/top_left_overlay", TintIndex = 1  } },
-                    }
-                }
-            }
-        };
-        ModelData animated_block = new ModelData
-        {
-            Parent = "block/cube_all",
-            Textures = new()
-            {
-                { "all", "block/animated" }
-            }
-        };
-
-        Dictionary<string, ModelData> models = new()
-        {
-            { "block/cube", cube },
-            { "block/cube_all", cube_all },
-            { "block/cross", cross },
-            { "block/up_block", up_block },
-            { "block/cross_block", cross_block },
-            { "block/layered_block", layered_block },
-            { "block/animated_block", animated_block },
-        };
+        Dictionary<string, JsonModel> fetchedModels = new();
 
         StateData full_state = new StateData
         {
@@ -222,16 +95,16 @@ public static class BlockModelBakery
             }
         };
 
-        List<ModelData> modelChain = new(8);
+        List<JsonModel> modelChain = new(8);
         foreach (var state in new StateData[] { full_state, cross_state, layered_state, animated_state })
         {
             foreach (var (key, variant) in state.Variants)
             {
                 string identifier = $"block/{variant.Model}{key}";
 
-                LoadModelChain(variant.Model, models, modelChain);
+                LoadModelChain(variant.Model, fetchedModels, modelChain);
                 Dictionary<string, string> textureMap = ResolveAndBuildTextureMap(modelChain);
-                List<ModelElement>? activeElements = null;
+                List<JsonModel.Element>? activeElements = null;
                 for (int i = 0; i < modelChain.Count; i++)
                 {
                     if (modelChain[i].Elements != null && modelChain[i].Elements.Count > 0)
@@ -253,14 +126,41 @@ public static class BlockModelBakery
         }
     }
 
-    private static void LoadModelChain(string startModel, Dictionary<string, ModelData> models, List<ModelData> outChain)
+    private static JsonModel? LoadModelDataFromFile(string path)
+    {
+        string filePath = $"./assets/models/{path}.json";
+        if (!File.Exists(filePath))
+            return null;
+
+        try
+        {
+            string jsonText = File.ReadAllText(filePath);
+
+            var options = new JsonSerializerOptions
+            {
+                AllowTrailingCommas = true,
+                ReadCommentHandling = JsonCommentHandling.Skip,
+            };
+
+            return JsonSerializer.Deserialize<JsonModel>(jsonText, options);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[JSON ERROR] Failed to load model at {path}: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static void LoadModelChain(string startModel, Dictionary<string, JsonModel> models, List<JsonModel> outChain)
     {
         outChain.Clear();
         string? currentModel = startModel;
 
         int depthSafety = 0;
 
-        while (!string.IsNullOrEmpty(currentModel) && models.TryGetValue(currentModel, out ModelData data))
+        JsonModel? model;
+        while (!string.IsNullOrEmpty(currentModel) &&
+             (models.TryGetValue(currentModel, out model) || (model = LoadModelDataFromFile(currentModel)) != null))
         {
             if (++depthSafety > 32)
             {
@@ -268,12 +168,12 @@ public static class BlockModelBakery
                 break;
             }
 
-            outChain.Add(data);
-            currentModel = data.Parent;
+            outChain.Add(model);
+            currentModel = model.Parent;
         }
     }
 
-    private static Dictionary<string, string> ResolveAndBuildTextureMap(List<ModelData> modelParentChain)
+    private static Dictionary<string, string> ResolveAndBuildTextureMap(List<JsonModel> modelParentChain)
     {
         Dictionary<string, string> map = new(StringComparer.OrdinalIgnoreCase);
 
@@ -314,32 +214,32 @@ public static class BlockModelBakery
     }
 
     private static void GenerateElement(
-        StateVariant variant, ModelElement element, BlockModel model,
+        StateVariant variant, JsonModel.Element element, BlockModel model,
         TextureAtlas atlas, Dictionary<string, string> textureMap)
     {
-        ModelElement.ElementRotation? rot = element.Rotation;
+        JsonModel.Element.ElementRotation? rot = element.Rotation;
         foreach (var (face, data) in element.Faces)
         {
             string texKey = data.Texture[0] == '#' ? data.Texture.Substring(1) : data.Texture;
-            BakedQuad quad = GenerateQuad(face, element.From, element.To, data.UVs, data.Rotation, textureMap.GetValueOrDefault(texKey, texKey), data.TintIndex, rot, variant, atlas);
+
+            BlockFace blockFace = BlockFaceExt.FromString(face);
+            BakedQuad quad = GenerateQuad(blockFace, element.From, element.To, data.UV, 0 /*data.Rotation*/, textureMap.GetValueOrDefault(texKey, texKey), data.TintIndex, rot, variant, atlas);
 
             ApplyModelRotation(new Vector3(0.5f, 0.5f, 0.5f), variant.X, variant.Y, ref quad);
 
-            BlockFace worldFace = face;
-
             int xSteps = (variant.X % 360) / 90;
-            for (int i = 0; i < xSteps; i++) worldFace = worldFace.RotateX90();
+            for (int i = 0; i < xSteps; i++) blockFace = blockFace.RotateX90();
 
             int ySteps = (variant.Y % 360) / 90;
-            for (int i = 0; i < ySteps; i++) worldFace = worldFace.RotateY90();
+            for (int i = 0; i < ySteps; i++) blockFace = blockFace.RotateY90();
 
-            model.AddFace(worldFace, quad);
+            model.AddFace(blockFace, quad);
         }
     }
 
     public static BakedQuad GenerateQuad(BlockFace face,
         float[] from, float[] to, float[] uvs, int faceRotation, string tex, int tintInd,
-        ModelElement.ElementRotation? elementRotation, StateVariant state, TextureAtlas atlas)
+        JsonModel.Element.ElementRotation? elementRotation, StateVariant state, TextureAtlas atlas)
     {
         Vector3 min = new Vector3(from[0], from[1], from[2]) / 16f;
         Vector3 max = new Vector3(to[0], to[1], to[2]) / 16f;
@@ -409,12 +309,12 @@ public static class BlockModelBakery
         }
     }
 
-    private static void RotateVertices(ModelElement.ElementRotation? rotation,
+    private static void RotateVertices(JsonModel.Element.ElementRotation? rotation,
         ref Vector3 v0, ref Vector3 v1, ref Vector3 v2, ref Vector3 v3)
     {
         if (rotation != null)
         {
-            var rot = rotation.Value;
+            var rot = rotation;
             RotateVertex(rot, ref v0);
             RotateVertex(rot, ref v1);
             RotateVertex(rot, ref v2);
@@ -422,7 +322,7 @@ public static class BlockModelBakery
         }
     }
 
-    private static void RotateVertex(ModelElement.ElementRotation rotation, ref Vector3 vertex)
+    private static void RotateVertex(JsonModel.Element.ElementRotation rotation, ref Vector3 vertex)
     {
         Vector3 origin = new Vector3(rotation.Origin[0], rotation.Origin[1], rotation.Origin[2]) / 16f;
         Vector3 pos = vertex - origin;

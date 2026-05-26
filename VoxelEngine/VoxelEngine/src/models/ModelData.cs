@@ -24,7 +24,6 @@ public struct ModelData
         public struct ElementFace
         {
             public float[] UVs { get; set; }
-            public int Rotation { get; set; }
             public string Texture { get; set; }
             public int TintIndex { get; set; }
         }

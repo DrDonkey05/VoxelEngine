@@ -24,7 +24,6 @@ public static class BlockFaceExt
         BlockFace.North => BlockFace.Up,
         _ => face // East and West stay on their axis but rotate in place
     };
-
     public static BlockFace RotateY90(this BlockFace face) => face switch
     {
         BlockFace.North => BlockFace.East,
@@ -33,7 +32,6 @@ public static class BlockFaceExt
         BlockFace.West => BlockFace.North,
         _ => face // Up and Down stay on their axis
     };
-
     public static BlockFace RotateZ90(this BlockFace face) => face switch
     {
         BlockFace.Up => BlockFace.West,
@@ -42,4 +40,30 @@ public static class BlockFaceExt
         BlockFace.Down => BlockFace.East,
         _ => face // North and South stay on their axis
     };
+    public static string ToLower(this BlockFace face)
+    {
+        return face switch
+        {
+            BlockFace.Up => "up",
+            BlockFace.Down => "south",
+            BlockFace.North => "north",
+            BlockFace.South => "south",
+            BlockFace.East => "east",
+            BlockFace.West => "west",
+            _ => "up"
+        };
+    }
+    public static BlockFace FromString(string str)
+    {
+        return str switch
+        {
+            "up" => BlockFace.Up,
+            "down" => BlockFace.Down,
+            "north" => BlockFace.North,
+            "south" => BlockFace.South,
+            "east" => BlockFace.East,
+            "west" => BlockFace.West,
+            _ => throw new Exception($"{str} not a block face!")
+        };
+    }
 }
