@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "": {
+      "model": "block/up_block"
+    },
+    "axis=z": {
+      "model": "block/up_block",
+      "x": 90
+    },
+    "axis=x": {
+      "model": "block/up_block",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

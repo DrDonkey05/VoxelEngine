@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "block/cross_block"
+    }
+  }
+}

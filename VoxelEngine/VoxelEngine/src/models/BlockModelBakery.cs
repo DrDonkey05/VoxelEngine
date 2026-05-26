@@ -2,6 +2,7 @@
 using System.Text.Json;
 using VoxelEngine.src.json;
 using VoxelEngine.src.rendering.textures;
+using VoxelEngine.src.world;
 
 namespace VoxelEngine.src.models;
 
@@ -30,124 +31,42 @@ public static class BlockModelBakery
     //};
 
     public static Dictionary<string, BlockModel> CachedModels = new();
-
-    public static void CreateModels(TextureAtlas atlas)
+    private static Dictionary<string, JsonModel> fetchedModels = new();
+    public static void ClearJsonCaches()
     {
-        Dictionary<string, JsonModel> fetchedModels = new();
+        fetchedModels.Clear();
+    }
 
-        StateData full_state = new StateData
-        {
-            Variants = new()
-            {
-                {"", new()
-                    {
-                        Model = "block/up_block"
-                    }
-                },
-                {"axis=z", new()
-                    {
-                        Model = "block/up_block",
-                        X = 90
-                    }
-                },
-                {"axis=x", new()
-                    {
-                        Model = "block/up_block",
-                        X = 90,
-                        Y = 90
-                    }
-                }
-            }
-        };
-        StateData cross_state = new StateData
-        {
-            Variants = new()
-            {
-                {"", new()
-                    {
-                        Model = "block/cross_block"
-                    }
-                }
-            }
-        };
-        StateData layered_state = new StateData
-        {
-            Variants = new()
-            {
-                {"", new()
-                    {
-                        Model = "block/layered_block"
-                    }
-                }
-            }
-        };
-        StateData animated_state = new StateData
-        {
-            Variants = new()
-            {
-                {"", new()
-                    {
-                        Model = "block/animated_block"
-                    }
-                }
-            }
-        };
-
+    public static void CreateModel(JsonState state, TextureAtlas atlas)
+    {
         List<JsonModel> modelChain = new(8);
-        foreach (var state in new StateData[] { full_state, cross_state, layered_state, animated_state })
+        foreach (var (key, variant) in state.Variants)
         {
-            foreach (var (key, variant) in state.Variants)
+            string identifier = $"{variant.Model}{key}";
+
+            LoadModelChain(variant.Model, fetchedModels, modelChain);
+            Dictionary<string, string> textureMap = ResolveAndBuildTextureMap(modelChain);
+            List<JsonModel.Element>? activeElements = null;
+            for (int i = 0; i < modelChain.Count; i++)
             {
-                string identifier = $"{variant.Model}{key}";
-
-                LoadModelChain(variant.Model, fetchedModels, modelChain);
-                Dictionary<string, string> textureMap = ResolveAndBuildTextureMap(modelChain);
-                List<JsonModel.Element>? activeElements = null;
-                for (int i = 0; i < modelChain.Count; i++)
+                if (modelChain[i].Elements != null && modelChain[i].Elements.Count > 0)
                 {
-                    if (modelChain[i].Elements != null && modelChain[i].Elements.Count > 0)
-                    {
-                        activeElements = modelChain[i].Elements;
-                        break;
-                    }
+                    activeElements = modelChain[i].Elements;
+                    break;
                 }
-                if (activeElements == null) continue;
-
-                BlockModel model = new BlockModel(variant.Model, key);
-                foreach (var element in activeElements)
-                {
-                    GenerateElement(variant, element, model, atlas, textureMap);
-                }
-
-                CachedModels.Add(identifier, model);
             }
-        }
-    }
+            if (activeElements == null) continue;
 
-    private static JsonModel? LoadModelDataFromFile(string path)
-    {
-        string filePath = $"./assets/models/{path}.json";
-        if (!File.Exists(filePath))
-            return null;
-
-        try
-        {
-            string jsonText = File.ReadAllText(filePath);
-
-            var options = new JsonSerializerOptions
+            BlockModel model = new BlockModel(variant.Model, key);
+            foreach (var element in activeElements)
             {
-                AllowTrailingCommas = true,
-                ReadCommentHandling = JsonCommentHandling.Skip,
-            };
+                GenerateElement(variant, element, model, atlas, textureMap);
+            }
 
-            return JsonSerializer.Deserialize<JsonModel>(jsonText, options);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[JSON ERROR] Failed to load model at {path}: {ex.Message}");
-            return null;
+            CachedModels.Add(identifier, model);
         }
     }
+
     private static void LoadModelChain(string startModel, Dictionary<string, JsonModel> models, List<JsonModel> outChain)
     {
         outChain.Clear();
@@ -157,7 +76,7 @@ public static class BlockModelBakery
 
         JsonModel? model;
         while (!string.IsNullOrEmpty(currentModel) &&
-             (models.TryGetValue(currentModel, out model) || (model = LoadModelDataFromFile(currentModel)) != null))
+             (models.TryGetValue(currentModel, out model) || (model = JsonLoader.Load<JsonModel>($"./assets/models/{currentModel}.json")) != null))
         {
             if (++depthSafety > 32)
             {
@@ -210,7 +129,7 @@ public static class BlockModelBakery
     }
 
     private static void GenerateElement(
-        StateData.Variant variant, JsonModel.Element element, BlockModel model,
+        JsonState.StateVariant variant, JsonModel.Element element, BlockModel model,
         TextureAtlas atlas, Dictionary<string, string> textureMap)
     {
         JsonModel.Element.ElementRotation? rot = element.Rotation;
@@ -250,7 +169,7 @@ public static class BlockModelBakery
 
     public static BakedQuad GenerateQuad(BlockFace face, //int faceRotation,
         float[] from, float[] to, float[] uvs, string tex, int tintInd, BlockFace? cullFace,
-        JsonModel.Element.ElementRotation? elementRotation, StateData.Variant state, TextureAtlas atlas)
+        JsonModel.Element.ElementRotation? elementRotation, JsonState.StateVariant state, TextureAtlas atlas)
     {
         Vector3 min = new Vector3(from[0], from[1], from[2]) / 16f;
         Vector3 max = new Vector3(to[0], to[1], to[2]) / 16f;
@@ -378,17 +297,5 @@ public static class BlockModelBakery
         {
             quad.Positions[i] = Vector3.Transform(quad.Positions[i] - center, blockRot) + center;
         }
-    }
-}
-
-public struct StateData
-{
-    public Dictionary<string, Variant> Variants;
-
-    public struct Variant
-    {
-        public string Model;
-        public int X;
-        public int Y;
     }
 }

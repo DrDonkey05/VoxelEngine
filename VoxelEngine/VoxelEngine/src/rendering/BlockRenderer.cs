@@ -16,10 +16,8 @@ public class BlockRenderer
         this.shader = shader;
     }
 
-    public unsafe void Render(int tick, Vector3 position, Mesh mesh, Camera camera, Texture2D texture)
+    public void Begin(int tick, Texture2D texture, Camera camera)
     {
-        Matrix4x4 model = Matrix4x4.CreateTranslation(Vector3.Zero);
-
         shader.Use();
         shader.SetUniform("uGlobalFrameTicker", tick);
 
@@ -28,13 +26,20 @@ public class BlockRenderer
 
         texture.Bind();
         shader.SetUniform("uTexture", 0);
+    }
 
+    public unsafe void Render(Vector3 position, Mesh mesh)
+    {
+        Matrix4x4 model = Matrix4x4.CreateTranslation(position);
         shader.SetUniform("uModel", model);
 
         mesh.Bind();
 
         gl.DrawElements(PrimitiveType.Triangles, mesh.IndexCount, DrawElementsType.UnsignedInt, (void*)0);
+    }
 
+    public void End()
+    {
         gl.BindVertexArray(0);
     }
 }

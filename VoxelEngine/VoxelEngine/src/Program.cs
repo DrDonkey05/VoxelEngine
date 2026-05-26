@@ -28,11 +28,8 @@ public class Program
     private static Camera camera;
     private static TextureAtlas atlas;
     private static BlockRenderer blockRenderer;
-    private static Chunk chunk;
-
-    private static BlockModel[] blockModels;
-    private static int modelIndex = 0;
-    private static bool prev1Down, prev2Down;
+    private static Chunk chunk1;
+    private static Chunk chunk2;
 
     private static double tickTimer = 0.0;
     private static byte ticksPerSecond = 20;
@@ -55,20 +52,26 @@ public class Program
         {
             gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-            blockRenderer.Render(tick, chunk.WorldPosition, chunk.Mesh, camera, atlas.Texture);
+            blockRenderer.Begin(tick, atlas.Texture, camera);
+
+            blockRenderer.Render(chunk1.WorldPosition, chunk1.Mesh);
+            blockRenderer.Render(chunk2.WorldPosition, chunk2.Mesh);
+
+            blockRenderer.End();
         };
 
         window.Update += OnUpdate;
 
         window.Closing += () =>
         {
-            chunk.Mesh?.Dispose();
+            chunk1.Mesh?.Dispose();
+            chunk2.Mesh?.Dispose();
         };
 
         window.Resize += (size) =>
         {
-            // gl.Viewport(0, 0, (uint)size.X, (uint)size.Y);
-            // camera.AspectRatio = (float)size.X / size.Y;
+            gl.Viewport(0, 0, (uint)size.X, (uint)size.Y);
+            camera.AspectRatio = (float)size.X / size.Y;
         };
 
         window.Run();
@@ -135,10 +138,17 @@ public class Program
 
         shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
         blockRenderer = new BlockRenderer(gl, shader);
-        BlockModelBakery.CreateModels(atlas);
-        chunk = new Chunk(0, 0, 0);
-        blockModels = BlockModelBakery.CachedModels.Values.ToArray();
-        chunk.BuildMesh(gl, blockModels[0]);
+
+        Block.UP_BLOCK.GenerateStatesAndModels(atlas);
+        Block.ANIMATED_BLOCK.GenerateStatesAndModels(atlas);
+        Block.LAYERED_BLOCK.GenerateStatesAndModels(atlas);
+        Block.CROSS_BLOCK.GenerateStatesAndModels(atlas);
+        BlockModelBakery.ClearJsonCaches();
+
+        chunk1 = new Chunk(0, 0, 0);
+        chunk2 = new Chunk(1, 1, 1);
+        chunk1.BuildMesh(gl);
+        chunk2.BuildMesh(gl);
     }
 
     private static void HandleKeyboard(double deltaTime)
@@ -170,32 +180,6 @@ public class Program
         // Close window instantly on Escape
         if (keyboard.IsKeyPressed(Key.Escape))
             window.Close();
-
-        if (keyboard.IsKeyPressed(Key.Number1))
-        {
-            if (!prev1Down)
-            {
-                modelIndex -= 1;
-                modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
-                chunk.BuildMesh(gl, blockModels[modelIndex]);
-            }
-            prev1Down = true;
-        }
-        else
-            prev1Down = false;
-
-        if (keyboard.IsKeyPressed(Key.Number2))
-        {
-            if (!prev2Down)
-            {
-                modelIndex += 1;
-                modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
-                chunk.BuildMesh(gl, blockModels[modelIndex]);
-            }
-            prev2Down = true;
-        }
-        else
-            prev2Down = false;
 
         camera.Position = newPosition;
     }
