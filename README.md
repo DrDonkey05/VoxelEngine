@@ -12,10 +12,10 @@ I am looking to explore how voxel worlds might be built in a modular and expanda
 5. Learn about data driven approaches and GPU rendering workflows
 
 # Current Features
-...
-
-# Architecture
-...
+- Define a block in the code 
+- Block States are defined in json files and fetched for each block
+- Block Models are defined in json files and fetched for each block state
+- Block Models are baked at runtime, and simply fetched when meshing
 
 # Roadmap
 - ~~Core Engine~~
@@ -23,14 +23,18 @@ I am looking to explore how voxel worlds might be built in a modular and expanda
     - ~~Render a 3D cube~~
     - ~~Include basic 3D camera movement~~
 - Rendering and Assets
-  - Create a texture atlas supporting abitrary sizes and animations
-  - Create a texture atlas generator/stitcher
-  - Define block model format (JSON)
-  - Generate baked models from JSON block mdoel
+  - ~~Create a texture atlas supporting abitrary sizes and animations~~
+  - ~~Create a texture atlas generator/stitcher~~
+  - ~~Define block model format (JSON)~~
+  - ~~Generate baked models from JSON block model~~
   - ~~Generate meshes from baked models~~
 - Data System
-  - Define block state format (JSON)
-  - Generate block models from block states and block models combined
+  - ~~Define block state format (JSON)~~
+  - ~~Generate block models from block states and block models combined~~
+- World
+  - Generate terrain
+  - Create a chunk streaming system
+  - Create a chunk serialization system for saving/loading
 
 # Notes
 This project is my exploration into data driven systems. I will prioritise understanding and modularity over rapid feature development, lest it turns into spaghetti code.
