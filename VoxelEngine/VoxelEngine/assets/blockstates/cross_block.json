@@ -1,7 +1,9 @@
 {
-  "variants": {
-    "": {
-      "model": "block/cross_block"
+  "parts": [
+    {
+      "apply": {
+        "model": "block/cross_block"
+      }
     }
-  }
+  ]
 }

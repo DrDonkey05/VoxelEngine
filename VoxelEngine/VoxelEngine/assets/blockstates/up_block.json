@@ -1,16 +1,31 @@
 {
-  "variants": {
-    "": {
-      "model": "block/up_block"
+  "parts": [
+    {
+      "apply": {
+        "model": "block/up_block"
+      },
+      "when": {
+        "axis": "y"
+      }
     },
-    "axis=z": {
-      "model": "block/up_block",
-      "x": 90
+    {
+      "apply": {
+        "model": "block/up_block",
+        "x": 90
+      },
+      "when": {
+        "axis": "z"
+      }
     },
-    "axis=x": {
-      "model": "block/up_block",
-      "x": 90,
-      "y": 90
+    {
+      "apply": {
+        "model": "block/up_block",
+        "x": 90,
+        "y": 90
+      },
+      "when": {
+        "axis": "x"
+      }
     }
-  }
+  ]
 }

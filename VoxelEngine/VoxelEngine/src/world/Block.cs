@@ -11,6 +11,8 @@ public class Block
     public static Block CROSS_BLOCK = new Block("cross_block");
     public static Block ANIMATED_BLOCK = new Block("animated_block");
     public static Block LAYERED_BLOCK = new Block("layered_block");
+    public static Block MULTIPART_BLOCK = new Block("multipart_block");
+    public static Block WALL_BLOCK = new Block("cobblestone_wall");
 
     public string Id { get; }
     public BlockState DefaultState { get; private set; }
@@ -27,7 +29,7 @@ public class Block
         return StatesByProperties.Values;
     }
 
-    public void RegisterStates(List<BlockState> states, string defaultCondition = "")
+    public void RegisterStates(List<BlockState> states)
     {
         foreach (var state in states)
         {
@@ -35,7 +37,7 @@ public class Block
             StatesByProperties.Add(key, state);
         }
 
-        DefaultState = StatesByProperties.TryGetValue(defaultCondition, out var d)
+        DefaultState = StatesByProperties.TryGetValue(states[0].ModelVariant, out var d)
             ? d
             : StatesByProperties.Values.First();
     }
@@ -58,35 +60,142 @@ public class Block
         if (jsonState == null)
             return;
 
-        BlockModelBakery.CreateModel(jsonState, atlas);
-
-        foreach (var variant in jsonState.Variants)
+        HashSet<string> createdModelKeys = new();
+        if (jsonState.Parts != null && jsonState.Parts.Count > 0)
         {
-            string variantKey = variant.Key; // e.g., "axis=z" or ""
-            var variantData = variant.Value;
+            // Gather all property conditions present inside the JSON rules
+            var uniquePropertyDomain = DiscoverMultipartProperties(jsonState.Parts);
 
-            // Parse "axis=z" into a clean Dictionary<string, string>
-            var properties = new Dictionary<string, string>();
-            if (!string.IsNullOrEmpty(variantKey))
+            // Compute every possible state combination permutation array layout
+            var listAllPossiblePermutations = GenerateCombinations(uniquePropertyDomain);
+
+            List<JsonState.StateVariant> variantsOfPartList = new();
+            foreach (var propertySet in listAllPossiblePermutations)
             {
-                string[] pairs = variantKey.Split(',');
-                foreach (string pair in pairs)
+                string variantName = BlockState.GetPropertyKey(propertySet);
+                // Check which separate multi-part element segments match this current active state configuration
+                foreach (var part in jsonState.Parts)
                 {
-                    string[] split = pair.Split('=');
-                    if (split.Length == 2) properties[split[0]] = split[1];
+                    if (part.When == null || part.When.Matches(propertySet))
+                    {
+                        // Compose unique variant descriptors per sub-component to ensure bakery caches align
+                        // $"{part.Variant.Model}_x{part.Variant.X}_y{part.Variant.Y}";
+                        variantsOfPartList.Add(part.Variant);
+                    }
                 }
+                if (variantsOfPartList.Count <= 0)
+                    continue;
+
+                var newState = new BlockState(this, this.Id, variantName, propertySet);
+                ModelBakery.CreateModel(variantsOfPartList, newState.Model, newState.ModelVariant, atlas);
+                variantsOfPartList.Clear();
+                stateList.Add(newState);
             }
-
-            var newState = new BlockState(
-                this,
-                variantData.Model,
-                $"{variantData.Model}{variantKey}",
-                properties
-            );
-
-            stateList.Add(newState);
         }
 
-        RegisterStates(stateList, defaultCondition: "");
+        RegisterStates(stateList);
+    }
+
+    // Helper to parse strings like "axis=z,facing=north" into structural Dictionaries
+    private static Dictionary<string, string> ParsePropertyKey(string key)
+    {
+        var properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrEmpty(key)) return properties;
+
+        string[] pairs = key.Split(',');
+        foreach (string pair in pairs)
+        {
+            string[] split = pair.Split('=');
+            if (split.Length == 2) properties[split[0]] = split[1];
+        }
+        return properties;
+    }
+
+    // Unpacks all possible states a multipart block can experience based on its JSON files values
+    private static Dictionary<string, HashSet<string>> DiscoverMultipartProperties(List<JsonState.StatePart> parts)
+    {
+        var domain = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var part in parts)
+        {
+            if (part.When == null) continue;
+
+            // We gather keys from our compiled structural objects
+            GatherPropertiesFromCondition(part.When, domain);
+        }
+
+        return domain;
+    }
+
+    private static void GatherPropertiesFromCondition(JsonState.StatePart.IStateWhen condition, Dictionary<string, HashSet<string>> domain)
+    {
+        if (condition is JsonState.StatePart.SimpleCondition simple)
+        {
+            foreach (var pair in simple.Conditions)
+            {
+                if (!domain.ContainsKey(pair.Key))
+                {
+                    domain[pair.Key] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    domain[pair.Key].Add("none");
+                }
+
+                // Include all split pipe values into the possibilities list (e.g., "side", "up")
+                foreach (var val in pair.Value)
+                {
+                    domain[pair.Key].Add(val);
+                }
+            }
+        }
+        else if (condition is JsonState.StatePart.LogicalGroupCondition group)
+        {
+            foreach (var sub in group.SubConditions)
+            {
+                GatherPropertiesFromCondition(sub, domain);
+            }
+        }
+    }
+
+    // Recursive permutation generator math to expand property tables out cleanly
+    private static List<Dictionary<string, string>> GenerateCombinations(Dictionary<string, HashSet<string>> domain)
+    {
+        var results = new List<Dictionary<string, string>>();
+        var keys = domain.Keys.ToList();
+
+        // If the block has zero properties (no conditions parsed anywhere)
+        if (keys.Count == 0)
+        {
+            results.Add(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+            return results;
+        }
+
+        GenerateCombinationsRecursive(0, keys, domain, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase), results);
+        return results;
+    }
+
+    private static void GenerateCombinationsRecursive(
+        int index,
+        List<string> keys,
+        Dictionary<string, HashSet<string>> domain,
+        Dictionary<string, string> current,
+        List<Dictionary<string, string>> results)
+    {
+        if (index == keys.Count)
+        {
+            // Add a clean snapshot copy of the verified state configuration
+            results.Add(new Dictionary<string, string>(current, StringComparer.OrdinalIgnoreCase));
+            return;
+        }
+
+        string currentKey = keys[index];
+        foreach (string val in domain[currentKey])
+        {
+            current[currentKey] = val;
+
+            GenerateCombinationsRecursive(index + 1, keys, domain, current, results);
+
+            // FIX: Backtracking step. Clear out this key-value choice before 
+            // looping around to evaluate alternative brother branches!
+            current.Remove(currentKey);
+        }
     }
 }

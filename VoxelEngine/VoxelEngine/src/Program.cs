@@ -19,7 +19,7 @@ public class Program
     private static IKeyboard keyboard;
     private static IMouse mouse;
 
-    private static float movementSpeed = 5;
+    private static float movementSpeed = 25;
     private static float mouseSensitivity = 0.1f;
     private static Vector2 lastMousePosition;
     private static bool firstMouseMovement = true;
@@ -30,6 +30,10 @@ public class Program
     private static BlockRenderer blockRenderer;
     private static Chunk chunk1;
     private static Chunk chunk2;
+
+    //private static BlockModel[] blockModels;
+    //private static int modelIndex = 0;
+    //private static bool prev1Down, prev2Down;
 
     private static double tickTimer = 0.0;
     private static byte ticksPerSecond = 20;
@@ -55,7 +59,7 @@ public class Program
             blockRenderer.Begin(tick, atlas.Texture, camera);
 
             blockRenderer.Render(chunk1.WorldPosition, chunk1.Mesh);
-            blockRenderer.Render(chunk2.WorldPosition, chunk2.Mesh);
+            // blockRenderer.Render(chunk2.WorldPosition, chunk2.Mesh);
 
             blockRenderer.End();
         };
@@ -134,6 +138,13 @@ public class Program
         atlas.Add("./assets/textures/block/up2.png");
         atlas.Add("./assets/textures/block/top_left_overlay.png");
         atlas.Add("./assets/textures/block/animated.png");
+
+        atlas.Add("./assets/textures/block/redstone_dust_dot.png");
+        atlas.Add("./assets/textures/block/redstone_dust_line0.png");
+        atlas.Add("./assets/textures/block/redstone_dust_line1.png");
+        atlas.Add("./assets/textures/block/redstone_dust_overlay.png");
+        atlas.Add("./assets/textures/block/cobblestone.png");
+        atlas.Add("./assets/textures/block/resin_bricks.png");
         atlas.Stitch();
 
         shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
@@ -143,7 +154,11 @@ public class Program
         Block.ANIMATED_BLOCK.GenerateStatesAndModels(atlas);
         Block.LAYERED_BLOCK.GenerateStatesAndModels(atlas);
         Block.CROSS_BLOCK.GenerateStatesAndModels(atlas);
-        BlockModelBakery.ClearJsonCaches();
+        Block.WALL_BLOCK.GenerateStatesAndModels(atlas);
+        Block.MULTIPART_BLOCK.GenerateStatesAndModels(atlas);
+        ModelBakery.ClearJsonCaches();
+        // blockModels = BlockModelBakery.CachedModels.Values.ToArray();
+        Console.WriteLine($"Models Baked: {ModelBakery.CachedModels.Count}");
 
         chunk1 = new Chunk(0, 0, 0);
         chunk2 = new Chunk(1, 1, 1);
@@ -180,6 +195,33 @@ public class Program
         // Close window instantly on Escape
         if (keyboard.IsKeyPressed(Key.Escape))
             window.Close();
+
+
+        //if (keyboard.IsKeyPressed(Key.Number1))
+        //{
+        //    if (!prev1Down)
+        //    {
+        //        modelIndex -= 1;
+        //        modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
+        //        chunk1.BuildMesh(gl, blockModels[modelIndex]);
+        //    }
+        //    prev1Down = true;
+        //}
+        //else
+        //    prev1Down = false;
+
+        //if (keyboard.IsKeyPressed(Key.Number2))
+        //{
+        //    if (!prev2Down)
+        //    {
+        //        modelIndex += 1;
+        //        modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
+        //        chunk1.BuildMesh(gl, blockModels[modelIndex]);
+        //    }
+        //    prev2Down = true;
+        //}
+        //else
+        //    prev2Down = false;
 
         camera.Position = newPosition;
     }

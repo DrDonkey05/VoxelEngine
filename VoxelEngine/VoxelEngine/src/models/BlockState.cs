@@ -1,4 +1,7 @@
-﻿using System.IO;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text.Json;
 using VoxelEngine.src.json;
 using VoxelEngine.src.world;
@@ -12,17 +15,20 @@ public class BlockState
 
     public int Id { get; }
     public Block Owner { get; }
-    public string Model { get; }
-    public string ModelVariant { get; }
+
+    // Fallback references for standard block states
+    public string Model { get; private set; } = string.Empty;
+    public string ModelVariant { get; private set; } = string.Empty;
 
     public Dictionary<string, string> Properties { get; }
 
-    public BlockState(Block owner, string model, string modelVariant, Dictionary<string, string> properties)
+
+    public BlockState(Block owner, string model, string variant, Dictionary<string, string> properties)
     {
         Id = globalBlockStatesCounter++;
         Owner = owner;
         Model = model;
-        ModelVariant = modelVariant;
+        ModelVariant = $"{model}{variant}";
         Properties = properties;
 
         ById.Add(Id, this);

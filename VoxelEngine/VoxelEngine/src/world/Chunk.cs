@@ -9,10 +9,10 @@ public class Chunk
 {
     public Mesh Mesh { get; set; }
 
-    private const int SIZE = 16;
+    private const int SIZE = 1;
     private readonly Vector3 TINT = new Vector3(0.65f, 1.0f, 0.45f);
 
-    private bool[] blocks = new bool[SIZE * SIZE * SIZE];
+    private bool[] blocks = new bool[242 * 1 * 1];
     private Vector3 position;
 
     public Chunk(int x, int y, int z)
@@ -27,36 +27,37 @@ public class Chunk
         List<Vertex> vertices = new();
         List<uint> indices = new();
 
-        string stone = "block/animated_block";
-        string dirt = "block/up_block";
-        string grass = "block/layered_block";
-        string feature = "block/cross_block";
-
         // TODO: This is basically terrain generation and mesh generation in one lol
         //       Split them later. Instead of array.fill in the constructor,
         //       run through a chunk generation process
 
         uint offset = 0;
-        for (int x = 0; x < SIZE; x++)
+        for (int x = 0; x < 242; x++)
         {
-            for (int z = 0; z < SIZE; z++)
+            for (int z = 0; z < 1; z++)
             {
-                for (int y = 0; y < SIZE; y++)
+                for (int y = 0; y < 1; y++)
                 {
                     int index = LocalCoordToIndex(x, y, z);
 
                     Block block;
-                    if (y < SIZE - 4)
+                    if (y < SIZE - 5)
                         block = Block.ANIMATED_BLOCK;
-                    else if (y < SIZE - 2)
+                    else if (y < SIZE - 3)
                         block = Block.UP_BLOCK;
-                    else if (y < SIZE - 1)
+                    else if (y < SIZE - 2)
                         block = Block.LAYERED_BLOCK;
-                    else
+                    else if (y < SIZE - 1)
                         block = Block.CROSS_BLOCK;
+                    block = Block.WALL_BLOCK;
 
-                    string key = block.DefaultState.ModelVariant;
-                    BlockModel model = BlockModelBakery.CachedModels[key];
+                    BlockModel model; // = BlockModelBakery.CachedModels[block.DefaultState.ModelVariant];
+
+                    int max = ModelBakery.CachedModels.Count;
+                    if (x % 2 == 0)
+                        model = ModelBakery.CachedModels.Values.ToArray()[(x / 2) % max];
+                    else
+                        continue;
 
                     if (blocks[index])
                     {
@@ -73,7 +74,7 @@ public class Chunk
                                     {
                                         int checkIndex = LocalCoordToIndex(dx, dy, dz);
 
-                                        if (blocks[checkIndex])
+                                        if (blocks[checkIndex] && !blocks[checkIndex])
                                             continue;
                                     }
                                 }
@@ -83,6 +84,7 @@ public class Chunk
                                 {
                                     vertices.Add(new Vertex(
                                         quad.Positions[i] + blockPos,
+                                        quad.UVs[i],
                                         new Vector3(quad.AnimData.X, quad.AnimData.Y, quad.AnimData.Z),
                                         BitConverter.SingleToInt32Bits(quad.AnimData.W),
                                         quad.Tint == 1 ? TINT : Vector3.One

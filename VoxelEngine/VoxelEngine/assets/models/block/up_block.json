@@ -1,6 +1,11 @@
 {
-  "parent": "block/cube_all",
+  "parent": "block/cube",
   "textures": {
-    "all":  "block/up"
+    "up": "block/up",
+    "down": "block/down",
+    "north": "block/north",
+    "south": "block/south",
+    "east": "block/east",
+    "west": "block/west"
   }
 }

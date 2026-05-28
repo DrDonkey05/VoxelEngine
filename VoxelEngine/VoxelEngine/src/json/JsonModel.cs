@@ -32,6 +32,8 @@ public class JsonModel
             public int TintIndex { get; set; } = -1;
             [JsonPropertyName("cullface")]
             public string CullFace { get; set; } = string.Empty;
+            [JsonPropertyName("rotation")]
+            public int Rotation { get; set; } = 0;
         }
         public class ElementRotation
         {

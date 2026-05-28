@@ -7,13 +7,15 @@ namespace VoxelEngine.src.rendering;
 public readonly struct Vertex
 {
     public Vector3 Position { get; }
+    public Vector2 UV { get; }
     public Vector3 TextureBounds { get; }
     public int PackedAnimData { get; }
     public Vector3 Color { get; }
 
-    public Vertex(Vector3 position, Vector3 textureBounds, int packedAnimData, Vector3 color)
+    public Vertex(Vector3 position, Vector2 uv, Vector3 textureBounds, int packedAnimData, Vector3 color)
     {
         this.Position = position;
+        this.UV = uv;
         this.TextureBounds = textureBounds;
         this.PackedAnimData = packedAnimData;
         this.Color = color;

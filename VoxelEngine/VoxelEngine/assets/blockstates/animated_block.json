@@ -1,7 +1,9 @@
 {
-  "variants": {
-    "": {
-      "model": "block/animated_block"
+  "parts": [
+    {
+      "apply": {
+        "model": "block/animated_block"
+      }
     }
-  }
+  ]
 }

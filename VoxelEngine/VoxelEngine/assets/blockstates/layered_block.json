@@ -1,7 +1,9 @@
 {
-  "variants": {
-    "": {
-      "model": "block/layered_block"
+  "parts": [
+    {
+      "apply": {
+        "model": "block/layered_block"
+      }
     }
-  }
+  ]
 }
