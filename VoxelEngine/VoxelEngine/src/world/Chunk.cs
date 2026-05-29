@@ -1,4 +1,7 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Collections.Generic;
+using System.Numerics;
+using ServerProj.src.noise;
 using Silk.NET.OpenGL;
 using VoxelEngine.src.models;
 using VoxelEngine.src.rendering;
@@ -8,59 +11,84 @@ namespace VoxelEngine.src.world;
 public class Chunk
 {
     public Mesh Mesh { get; set; }
+    public bool IsDirty { get; set; }
 
-    private const int SIZE = 1;
-    private readonly Vector3 TINT = new Vector3(0.65f, 1.0f, 0.45f);
+    public const int SIZE = 16;
+    private readonly Vector3 TINT = new Vector3(0f, 0.73f, 0.12f);
 
-    private bool[] blocks = new bool[242 * 1 * 1];
-    private Vector3 position;
+    private int[] blocks = new int[SIZE * SIZE * SIZE];
+    public Vector3 Position { get; }
+    public Vector3 WorldPosition { get; }
 
-    public Chunk(int x, int y, int z)
+    public Chunk(int x, int y, int z, Perlin terrainGenerator)
     {
-        position = new Vector3(x, y, z);
+        Position = new Vector3(x, y, z);
+        WorldPosition = Position * SIZE;
+        IsDirty = false;
 
-        Array.Fill(blocks, true);
+        GenerateChunkData(terrainGenerator);
     }
 
-    public void BuildMesh(GL gl)
+    private void GenerateChunkData(Perlin terrainGenerator)
+    {
+        for (int x = 0; x < SIZE; x++)
+        {
+            for (int z = 0; z < SIZE; z++)
+            {
+                int baseHeightVariance = 16;
+                int baseHeight = 8;
+
+                double noiseValue = terrainGenerator.GetOctaveNoise2D((WorldPosition.X + x) / 64f, (WorldPosition.Z + z) / 64f, 5, 0.5, 2);
+
+                int height = (int)(noiseValue * baseHeightVariance) + baseHeight;
+                for (int y = 0; y < SIZE; y++)
+                {
+                    int worldY = (int)WorldPosition.Y + y;
+
+                    Block block;
+                    if (worldY < height - 2)
+                        block = Block.STONE;
+                    else if (worldY < height)
+                        block = Block.DIRT;
+                    else if (worldY == height)
+                        block = Block.GRASS_BLOCK;
+                    else
+                        block = Block.AIR;
+
+                    int stateId = block.DefaultState.Id;
+                    this.blocks[LocalCoordToIndex(x, y, z)] = stateId;
+                }
+            }
+        }
+    }
+
+    public BlockState? GetBlock(int x, int y, int z)
+    {
+        if (CheckInBounds(x, y, z))
+            return BlockState.ById[blocks[LocalCoordToIndex(x, y, z)]];
+        return null;
+    }
+
+    public void BuildMesh(GL gl, World world)
     {
         List<Vertex> vertices = new();
         List<uint> indices = new();
-
-        // TODO: This is basically terrain generation and mesh generation in one lol
-        //       Split them later. Instead of array.fill in the constructor,
-        //       run through a chunk generation process
-
         uint offset = 0;
-        for (int x = 0; x < 242; x++)
+
+        for (int x = 0; x < SIZE; x++)
         {
-            for (int z = 0; z < 1; z++)
+            for (int z = 0; z < SIZE; z++)
             {
-                for (int y = 0; y < 1; y++)
+                for (int y = 0; y < SIZE; y++)
                 {
                     int index = LocalCoordToIndex(x, y, z);
+                    int blockId = blocks[index];
 
-                    Block block;
-                    if (y < SIZE - 5)
-                        block = Block.ANIMATED_BLOCK;
-                    else if (y < SIZE - 3)
-                        block = Block.UP_BLOCK;
-                    else if (y < SIZE - 2)
-                        block = Block.LAYERED_BLOCK;
-                    else if (y < SIZE - 1)
-                        block = Block.CROSS_BLOCK;
-                    block = Block.WALL_BLOCK;
-
-                    BlockModel model; // = BlockModelBakery.CachedModels[block.DefaultState.ModelVariant];
-
-                    int max = ModelBakery.CachedModels.Count;
-                    if (x % 2 == 0)
-                        model = ModelBakery.CachedModels.Values.ToArray()[(x / 2) % max];
-                    else
-                        continue;
-
-                    if (blocks[index])
+                    if (blockId != Block.AIR.DefaultState.Id)
                     {
+                        BlockState currentState = BlockState.ById[blockId];
+                        BlockModel model = ModelBakery.CachedModels[currentState.ModelVariant];
+
                         foreach (var (face, quads) in model.Faces)
                         {
                             foreach (var quad in quads)
@@ -68,15 +96,15 @@ public class Chunk
                                 if (quad.CullFace != null)
                                 {
                                     Vector3 normal = quad.CullFace.Value.Normal();
-                                    int dx = x + (int)normal.X, dy = y + (int)normal.Y, dz = z + (int)normal.Z;
 
-                                    if (CheckInBounds(dx, dy, dz))
-                                    {
-                                        int checkIndex = LocalCoordToIndex(dx, dy, dz);
+                                    int dx = x + (int)normal.X + (int)WorldPosition.X;
+                                    int dy = y + (int)normal.Y + (int)WorldPosition.Y;
+                                    int dz = z + (int)normal.Z + (int)WorldPosition.Z;
 
-                                        if (blocks[checkIndex] && !blocks[checkIndex])
-                                            continue;
-                                    }
+                                    BlockState? neighborState = world.GetBlock(dx, dy, dz);
+
+                                    if (neighborState != null && neighborState != Block.AIR.DefaultState)
+                                        continue;
                                 }
 
                                 Vector3 blockPos = new Vector3(x, y, z);
@@ -87,7 +115,7 @@ public class Chunk
                                         quad.UVs[i],
                                         new Vector3(quad.AnimData.X, quad.AnimData.Y, quad.AnimData.Z),
                                         BitConverter.SingleToInt32Bits(quad.AnimData.W),
-                                        quad.Tint == 1 ? TINT : Vector3.One
+                                        quad.Tint == 0 ? TINT : Vector3.One
                                     ));
                                 }
 
@@ -114,10 +142,9 @@ public class Chunk
     {
         return x * SIZE * SIZE + z * SIZE + y;
     }
+
     private bool CheckInBounds(int x, int y, int z)
     {
         return !(x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE);
     }
-
-    public Vector3 WorldPosition => position * SIZE;
 }

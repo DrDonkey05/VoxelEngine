@@ -54,6 +54,17 @@ public class Camera
         Up = Vector3.Normalize(Vector3.Cross(Right, Forward));
     }
 
+    public void UpdateAspectRatio(float aspectRatio)
+    {
+        AspectRatio = aspectRatio;
+        CreateProjectionMatrix();
+    }
+    public void UpdateAspectRatio(Vector2 size)
+    {
+        AspectRatio = size.X / size.Y;
+        CreateProjectionMatrix();
+    }
+
     private Matrix4x4 GetViewMatrix()
     {
         return Matrix4x4.CreateLookAt(Position, Position + Forward, Up);

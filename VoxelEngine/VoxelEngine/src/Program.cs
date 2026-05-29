@@ -14,71 +14,53 @@ namespace VoxelEngine.src;
 
 public class Program
 {
-    private static GL gl;
-    private static IWindow window;
-    private static IKeyboard keyboard;
-    private static IMouse mouse;
-
-    private static float movementSpeed = 25;
-    private static float mouseSensitivity = 0.1f;
-    private static Vector2 lastMousePosition;
-    private static bool firstMouseMovement = true;
-
-    private static Shader shader;
-    private static Camera camera;
-    private static TextureAtlas atlas;
-    private static BlockRenderer blockRenderer;
-    private static Chunk chunk1;
-    private static Chunk chunk2;
-
-    //private static BlockModel[] blockModels;
-    //private static int modelIndex = 0;
-    //private static bool prev1Down, prev2Down;
+    public static Window Window { get; private set; }
 
     private static double tickTimer = 0.0;
     private static byte ticksPerSecond = 20;
     private static int tick = 0;
-    private static double timePerTick = 0.0;
+    private static double timePerTick = 1.0 / ticksPerSecond;
+
+    private static TextureAtlas atlas;
+    private static Shader shader;
+    private static BlockRenderer blockRenderer;
+
+    private static World world;
+    private static Player player;
 
     public static void Main(string[] args)
     {
-        timePerTick = 1.0 / ticksPerSecond;
-
         WindowOptions options = WindowOptions.Default;
-        options.Size = new Vector2D<int>(1280, 720);
+        options.Size = new Vector2D<int>(2000, 1200);
         options.Title = "Voxel Engine";
 
-        window = Window.Create(options);
+        Window = new Window(options);
 
-        window.Load += OnLoad;
+        Window.OnLoad += OnLoad;
+        Window.OnClosing += () => world?.Dispose();
+        Window.OnResize += (size) => player.Camera.UpdateAspectRatio(size);
+        Window.OnRender += OnRender;
+        Window.OnUpdate += OnUpdate;
 
-        window.Render += (double dt) =>
+        Window.OnKeyDown += (kb, key, code) =>
         {
-            gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
-            blockRenderer.Begin(tick, atlas.Texture, camera);
-
-            blockRenderer.Render(chunk1.WorldPosition, chunk1.Mesh);
-            // blockRenderer.Render(chunk2.WorldPosition, chunk2.Mesh);
-
-            blockRenderer.End();
+            if (key == Key.Escape)
+            {
+                Window.Close();
+                return;
+            }
+            player?.OnKeyDown(key);
+        };
+        Window.OnKeyUp += (kb, key, code) =>
+        {
+            player?.OnKeyUp(key);
         };
 
-        window.Update += OnUpdate;
-
-        window.Closing += () =>
+        Window.OnMouseMove += (ms, pos) =>
         {
-            chunk1.Mesh?.Dispose();
-            chunk2.Mesh?.Dispose();
+            player?.OnMouseMove(pos);
         };
-
-        window.Resize += (size) =>
-        {
-            gl.Viewport(0, 0, (uint)size.X, (uint)size.Y);
-            camera.AspectRatio = (float)size.X / size.Y;
-        };
-
-        window.Run();
+        Window.Run();
     }
 
     private static void OnUpdate(double dt)
@@ -95,159 +77,69 @@ public class Program
                 tick++;
         }
 
-        HandleKeyboard(dt);
-        HandleMouse();
+        player.HandleUpdate(dt);
+        world.HandleUpdate(Window.Gl, dt, player.Position);
+    }
+    private static void OnRender(double dt)
+    {
+        Window.Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+        blockRenderer.Begin(tick, atlas.Texture, player.Camera);
+
+        foreach (var chunk in world.LoadedChunks.Values)
+        {
+            if (chunk.Mesh != null && chunk.Mesh.IndexCount > 0)
+                blockRenderer.Render(chunk.WorldPosition, chunk.Mesh);
+        }
+
+        blockRenderer.End();
     }
 
     private static void OnLoad()
     {
-        gl = window.CreateOpenGL();
+        Window.Gl.ClearColor(Color.CornflowerBlue);
 
-        gl.ClearColor(Color.CornflowerBlue);
+        Window.Gl.Enable(EnableCap.CullFace);
+        Window.Gl.CullFace(TriangleFace.Back);
 
-        gl.Enable(EnableCap.CullFace);
-        gl.CullFace(TriangleFace.Back);
-        
-        gl.Enable(EnableCap.Blend);
-        gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        Window.Gl.Enable(EnableCap.Blend);
+        Window.Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
-        gl.Enable(EnableCap.DepthTest);
-        gl.DepthFunc(DepthFunction.Lequal);
+        Window.Gl.Enable(EnableCap.DepthTest);
+        Window.Gl.DepthFunc(DepthFunction.Lequal);
 
-        IInputContext input = window.CreateInput();
-        keyboard = input.Keyboards[0];
-        mouse = input.Mice[0];
-        mouse.Cursor.CursorMode = CursorMode.Raw;
+        LoadTextureAtlas();
+        LoadBlocks();
+        LoadRenderer();
 
-        keyboard.KeyDown += (kb, key, code) =>
-        {
-            if (key == Key.Escape) window.Close();
-        };
+        Camera camera = new Camera(Window.AspectRatio);
+        player = new Player(camera, Vector3.UnitY * 32);
 
-        float aspectRatio = (float)window.Size.X / window.Size.Y;
-        camera = new Camera(aspectRatio);
-        camera.Position = new Vector3(0.0f, 2.0f, 5.0f);
+        Window.Mouse.Cursor.CursorMode = CursorMode.Raw;
 
-        atlas = new TextureAtlas(gl);
-        atlas.Add("./assets/textures/block/up.png");
-        atlas.Add("./assets/textures/block/down.png");
-        atlas.Add("./assets/textures/block/north.png");
-        atlas.Add("./assets/textures/block/south.png");
-        atlas.Add("./assets/textures/block/east.png");
-        atlas.Add("./assets/textures/block/west.png");
-        atlas.Add("./assets/textures/block/up2.png");
-        atlas.Add("./assets/textures/block/top_left_overlay.png");
-        atlas.Add("./assets/textures/block/animated.png");
-
-        atlas.Add("./assets/textures/block/redstone_dust_dot.png");
-        atlas.Add("./assets/textures/block/redstone_dust_line0.png");
-        atlas.Add("./assets/textures/block/redstone_dust_line1.png");
-        atlas.Add("./assets/textures/block/redstone_dust_overlay.png");
-        atlas.Add("./assets/textures/block/cobblestone.png");
-        atlas.Add("./assets/textures/block/resin_bricks.png");
+        world = new World(0, player, Window.Gl);
+    }
+    private static void LoadTextureAtlas()
+    {
+        atlas = new TextureAtlas(Window.Gl);
+        atlas.Add("./assets/textures/block/stone.png");
+        atlas.Add("./assets/textures/block/dirt.png");
+        atlas.Add("./assets/textures/block/grass_block_top.png");
+        atlas.Add("./assets/textures/block/grass_block_side.png");
+        atlas.Add("./assets/textures/block/grass_block_side_overlay.png");
         atlas.Stitch();
-
-        shader = Shader.CreateShader(gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
-        blockRenderer = new BlockRenderer(gl, shader);
-
-        Block.UP_BLOCK.GenerateStatesAndModels(atlas);
-        Block.ANIMATED_BLOCK.GenerateStatesAndModels(atlas);
-        Block.LAYERED_BLOCK.GenerateStatesAndModels(atlas);
-        Block.CROSS_BLOCK.GenerateStatesAndModels(atlas);
-        Block.WALL_BLOCK.GenerateStatesAndModels(atlas);
-        Block.MULTIPART_BLOCK.GenerateStatesAndModels(atlas);
+    }
+    private static void LoadBlocks()
+    {
+        Block.AIR.GenerateStatesAndModels(atlas);
+        Block.STONE.GenerateStatesAndModels(atlas);
+        Block.DIRT.GenerateStatesAndModels(atlas);
+        Block.GRASS_BLOCK.GenerateStatesAndModels(atlas);
         ModelBakery.ClearJsonCaches();
-        // blockModels = BlockModelBakery.CachedModels.Values.ToArray();
-        Console.WriteLine($"Models Baked: {ModelBakery.CachedModels.Count}");
-
-        chunk1 = new Chunk(0, 0, 0);
-        chunk2 = new Chunk(1, 1, 1);
-        chunk1.BuildMesh(gl);
-        chunk2.BuildMesh(gl);
     }
-
-    private static void HandleKeyboard(double deltaTime)
+    private static void LoadRenderer()
     {
-        float speed = movementSpeed * (float)deltaTime;
-
-        Vector3 newPosition = camera.Position;
-
-        // Standard WASD movement controls
-        if (keyboard.IsKeyPressed(Key.W))
-            newPosition += camera.Forward * speed;
-
-        if (keyboard.IsKeyPressed(Key.S))
-            newPosition -= camera.Forward * speed;
-
-        if (keyboard.IsKeyPressed(Key.A))
-            newPosition -= camera.Right * speed;
-
-        if (keyboard.IsKeyPressed(Key.D))
-            newPosition += camera.Right * speed;
-
-        // Optional: Vertical flying controls for dev exploration
-        if (keyboard.IsKeyPressed(Key.Space))
-            newPosition += Vector3.UnitY * speed; // Move straight Up
-
-        if (keyboard.IsKeyPressed(Key.ShiftLeft))
-            newPosition -= Vector3.UnitY * speed; // Move straight Down
-
-        // Close window instantly on Escape
-        if (keyboard.IsKeyPressed(Key.Escape))
-            window.Close();
-
-
-        //if (keyboard.IsKeyPressed(Key.Number1))
-        //{
-        //    if (!prev1Down)
-        //    {
-        //        modelIndex -= 1;
-        //        modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
-        //        chunk1.BuildMesh(gl, blockModels[modelIndex]);
-        //    }
-        //    prev1Down = true;
-        //}
-        //else
-        //    prev1Down = false;
-
-        //if (keyboard.IsKeyPressed(Key.Number2))
-        //{
-        //    if (!prev2Down)
-        //    {
-        //        modelIndex += 1;
-        //        modelIndex = (modelIndex % blockModels.Length + blockModels.Length) % blockModels.Length;
-        //        chunk1.BuildMesh(gl, blockModels[modelIndex]);
-        //    }
-        //    prev2Down = true;
-        //}
-        //else
-        //    prev2Down = false;
-
-        camera.Position = newPosition;
-    }
-
-    private static void HandleMouse()
-    {
-        Vector2 currentPosition = mouse.Position;
-
-        if (firstMouseMovement)
-        {
-            lastMousePosition = currentPosition;
-            firstMouseMovement = false;
-            return;
-        }
-
-        // Calculate how far the mouse traveled since last frame
-        float xOffset = currentPosition.X - lastMousePosition.X;
-        float yOffset = lastMousePosition.Y - currentPosition.Y; // Inverted because screen Y coordinates go down
-
-        lastMousePosition = currentPosition;
-
-        // Apply sensitivity adjustments
-        xOffset *= mouseSensitivity;
-        yOffset *= mouseSensitivity;
-
-        // Pass the delta changes directly into your camera wrapper
-        camera.ModifyOrientation(xOffset, yOffset);
+        shader = Shader.CreateShader(Window.Gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
+        blockRenderer = new BlockRenderer(Window.Gl, shader);
     }
 }

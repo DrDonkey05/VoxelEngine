@@ -2,7 +2,7 @@
   "parts": [
     {
       "apply": {
-        "model": "block/cross_block"
+        "model": "block/grass_block"
       }
     }
   ]

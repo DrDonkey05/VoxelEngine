@@ -7,12 +7,10 @@ namespace VoxelEngine.src.world;
 
 public class Block
 {
-    public static Block UP_BLOCK = new Block("up_block");
-    public static Block CROSS_BLOCK = new Block("cross_block");
-    public static Block ANIMATED_BLOCK = new Block("animated_block");
-    public static Block LAYERED_BLOCK = new Block("layered_block");
-    public static Block MULTIPART_BLOCK = new Block("multipart_block");
-    public static Block WALL_BLOCK = new Block("cobblestone_wall");
+    public static Block AIR = new Block("air");
+    public static Block DIRT = new Block("dirt");
+    public static Block STONE = new Block("stone");
+    public static Block GRASS_BLOCK = new Block("grass_block");
 
     public string Id { get; }
     public BlockState DefaultState { get; private set; }

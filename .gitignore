@@ -3,6 +3,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Asset testing files
+[Aa]sset_[Ee]xamples/
+
 # User-specific files
 *.rsuser
 *.suo

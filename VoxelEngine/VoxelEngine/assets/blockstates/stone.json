@@ -1,0 +1,9 @@
+{
+  "parts": [
+    {
+      "apply": {
+        "model":  "block/stone"
+      }
+    }
+  ]
+}

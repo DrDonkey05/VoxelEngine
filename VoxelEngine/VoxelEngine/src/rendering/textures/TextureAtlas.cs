@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Silk.NET.OpenGL;
 using StbImageSharp;
+using VoxelEngine.src.json;
 
 namespace VoxelEngine.src.rendering.textures;
 
@@ -61,8 +62,14 @@ public class TextureAtlas : IDisposable
             Array.Copy(image.Data, f * bytesPerFrame, frameData, 0, bytesPerFrame);
             frames.Add(frameData);
         }
+        int frameTickDelay = -1;
+        if (File.Exists($"{path}.json"))
+        {
+            JsonTexture meta = JsonLoader.Load<JsonTexture>($"{path}.json");
+            frameTickDelay = meta.TickDelay;
+        }
 
-        pendingSprites.Add(new PendingSprite(baseResourceKey, frameSize, frames));
+        pendingSprites.Add(new PendingSprite(baseResourceKey, frameSize, frames, frameTickDelay));
     }
 
     public void Stitch()
@@ -115,7 +122,7 @@ public class TextureAtlas : IDisposable
                     sprite.FrameSize,
                     sprite.FrameSize,
                     sprite.Frames.Count,
-                    sprite.Frames.Count // TODO: Read file and define it there
+                    sprite.FrameTickDelay
                 );
 
                 shelfX += totalStripWidth;
@@ -237,6 +244,6 @@ public class TextureAtlas : IDisposable
 
     public readonly record struct Vector2i(int X, int Y);
     public readonly record struct AtlasSlot(
-        Vector2i Origin, int FrameWidth, int FrameHeight, int FrameCount, int FrameTickDelay=1);
-    private readonly record struct PendingSprite(string Key, int FrameSize, List<byte[]> Frames);
+        Vector2i Origin, int FrameWidth, int FrameHeight, int FrameCount, int FrameTickDelay);
+    private readonly record struct PendingSprite(string Key, int FrameSize, List<byte[]> Frames, int FrameTickDelay);
 }

@@ -2,7 +2,7 @@
   "parts": [
     {
       "apply": {
-        "model": "block/animated_block"
+        "model": "block/air"
       }
     }
   ]

@@ -2,7 +2,7 @@
   "parts": [
     {
       "apply": {
-        "model": "block/layered_block"
+        "model": "block/dirt"
       }
     }
   ]
