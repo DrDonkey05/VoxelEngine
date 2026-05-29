@@ -20,7 +20,7 @@ public class World : IDisposable
     private readonly ConcurrentQueue<Vector3> chunksToRemove = new();
 
     private Player player;
-    private int renderDistanceRadius = 10;
+    private int renderDistanceRadius = 15;
     private NoiseSettings noiseSettings;
     private bool isDisposed;
 
@@ -220,7 +220,7 @@ public class World : IDisposable
         }
         return null;
     }
-    public void SetBlock(int x, int y, int z, int blockStateId)
+    public void SetBlock(int x, int y, int z, ushort blockStateId)
     {
         Vector3 chunkPos = GetChunkPosFromBlockPos(x, y, z);
 

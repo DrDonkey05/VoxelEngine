@@ -4,10 +4,10 @@ namespace VoxelEngine.src.models;
 
 public class BlockState
 {
-    private static int globalBlockStatesCounter = 0;
+    private static ushort globalBlockStatesCounter = 0;
     public static Dictionary<int, BlockState> ById = new();
 
-    public int Id { get; }
+    public ushort Id { get; }
     public Block Owner { get; }
 
     // Fallback references for standard block states

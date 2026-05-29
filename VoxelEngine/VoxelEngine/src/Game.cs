@@ -11,7 +11,7 @@ public enum InteractionType { Break, Place }
 public struct BlockInteractionRequest
 {
     public Vector3 TargetBlockPos { get; init; }
-    public int BlockStateId { get; init; }
+    public ushort BlockStateId { get; init; }
     public InteractionType Type { get; init; }
 }
 
@@ -42,7 +42,7 @@ public class Game
     /// <summary>
     /// Called by the Render Thread to safely pass the high-FPS player location down to the simulation.
     /// </summary>
-    public void EnqueueInteraction(Vector3 blockPos, int stateId, InteractionType type)
+    public void EnqueueInteraction(Vector3 blockPos, ushort stateId, InteractionType type)
     {
         interactionQueue.Enqueue(new BlockInteractionRequest 
         { 

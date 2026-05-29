@@ -27,6 +27,17 @@ public class Program
 
     // The Main Render Thread owns the Player and Camera entirely now!
     private static Player player;
+    // State trackers for continuous holding inside Program.cs
+    private static bool isLeftMouseDown = false;
+    private static bool isRightMouseDown = false;
+
+    // Cooldown pacing metrics (in seconds)
+    private static double interactionTimer = 0.0;
+    private const double BREAK_COOLDOWN = 0.2;
+    private const double PLACE_COOLDOWN = 0.2;
+
+    // Track the last acted-upon block position to avoid double-placing/breaking on the exact same spot in a single frame
+    private static Vector3 lastInteractedBlockPos = new Vector3(float.MaxValue);
 
     public static void Main(string[] args)
     {
@@ -53,33 +64,33 @@ public class Program
         };
         Window.OnKeyUp += (kb, key, code) => player?.OnKeyUp(key);
         Window.OnMouseMove += (ms, pos) => player?.OnMouseMove(pos);
-        Window.OnMouseDown += OnMouseDown;
-
-        Window.Run();
-    }
-
-    private static void OnMouseDown(IMouse mouse, MouseButton button)
-    {
-        if (player == null || gameInstance?.World == null) return;
-
-        // Run a high-precision raycast through our unlocked, live camera context
-        // Raycast distance limit: 5-6 blocks out (standard player reach)
-        var rayResult = PerformVoxelRaycast(player.Camera, 6.0f);
-
-        if (rayResult.Hit)
-        {
+        Window.OnMouseDown += (mouse, button) => {
             if (button == MouseButton.Left)
             {
-                // Break block -> change target position to AIR
-                gameInstance.EnqueueInteraction(rayResult.BlockPos, Block.AIR.DefaultState.Id, InteractionType.Break);
+                interactionTimer = BREAK_COOLDOWN;
+                isLeftMouseDown = true;
+                TriggerInteraction(); // Instant action!
             }
-            else if (button == MouseButton.Right)
+            if (button == MouseButton.Right)
             {
-                // Place block -> change the block right adjacent to the face we hit (e.g., STONE or DIRT)
-                Vector3 placePos = rayResult.BlockPos + rayResult.HitNormal;
-                gameInstance.EnqueueInteraction(placePos, Block.STONE.DefaultState.Id, InteractionType.Place);
+                interactionTimer = PLACE_COOLDOWN;
+                isRightMouseDown = true;
+                TriggerInteraction(); // Instant action!
             }
-        }
+        };
+
+        Window.OnMouseUp += (mouse, button) => {
+            if (button == MouseButton.Left) isLeftMouseDown = false;
+            if (button == MouseButton.Right) isRightMouseDown = false;
+
+            // Clear tracking when buttons are released
+            if (!isLeftMouseDown && !isRightMouseDown)
+            {
+                lastInteractedBlockPos = new Vector3(float.MaxValue);
+            }
+        };
+
+        Window.Run();
     }
 
     // Simple Voxel Raycast (DDA-lite / Sampling approach)
@@ -150,13 +161,49 @@ public class Program
     // --- RUNS AT MAX FPS (e.g., 144+ updates per second) ---
     private static void OnUpdate(double dt)
     {
-        // 1. Calculate input mechanics instantly using precise frame delta times
         player?.HandleUpdate(dt);
 
-        // 2. Safely push the updated position down to the world generation thread
         if (player != null)
         {
             gameInstance?.UpdateSharedPlayerPosition(player.Position);
+        }
+
+        // Process continuous auto-repeat if a button remains held down
+        if (isLeftMouseDown || isRightMouseDown)
+        {
+            interactionTimer += dt;
+            double targetCooldown = isLeftMouseDown ? BREAK_COOLDOWN : PLACE_COOLDOWN;
+
+            if (interactionTimer >= targetCooldown)
+            {
+                TriggerInteraction();
+                interactionTimer = 0.0; // Clean, standard reset
+            }
+        }
+    }
+
+    private static void TriggerInteraction()
+    {
+        if (gameInstance?.World == null || player == null) return;
+
+        var rayResult = PerformVoxelRaycast(player.Camera, 6.0f);
+        if (!rayResult.Hit) return;
+
+        if (isLeftMouseDown)
+        {
+            gameInstance.EnqueueInteraction(rayResult.BlockPos, Block.AIR.DefaultState.Id, InteractionType.Break);
+        }
+        else if (isRightMouseDown)
+        {
+            Vector3 placePos = rayResult.BlockPos + rayResult.HitNormal;
+
+            if (placePos != lastInteractedBlockPos)
+            {
+                gameInstance.EnqueueInteraction(placePos, Block.STONE.DefaultState.Id, InteractionType.Place);
+                lastInteractedBlockPos = placePos;
+
+                Console.WriteLine($"Placed block at {placePos.X}, {placePos.Y}, {placePos.Z}");
+            }
         }
     }
 

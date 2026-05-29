@@ -17,7 +17,7 @@ public class Chunk
     public const int SIZE = 16;
     private readonly Vector3 TINT = new Vector3(0f, 0.73f, 0.12f);
 
-    private int[] blocks = new int[SIZE * SIZE * SIZE];
+    private ushort[] blocks = new ushort[SIZE * SIZE * SIZE];
     public Vector3 Position { get; }
     public Vector3 WorldPosition { get; }
 
@@ -26,7 +26,8 @@ public class Chunk
     private uint[] pendingIndices;
     private readonly object dataLock = new();
 
-    private bool isEmpty;
+    public bool IsEmpty => nonAirBlockCount == 0;
+    private int nonAirBlockCount = 0;
 
     public Chunk(int x, int y, int z, NoiseSettings noiseSettings)
     {
@@ -39,7 +40,7 @@ public class Chunk
 
     private void GenerateChunkData(NoiseSettings noiseSettings)
     {
-        isEmpty = true;
+        nonAirBlockCount = 0;
         int chunkMinY = (int)WorldPosition.Y;
         int chunkMaxY = chunkMinY + SIZE;
 
@@ -84,7 +85,7 @@ public class Chunk
                         block = Block.AIR;
 
                     if (block != Block.AIR)
-                        isEmpty = false;
+                        nonAirBlockCount++;
 
                     this.blocks[index] = block.DefaultState.Id;
                 }
@@ -92,7 +93,7 @@ public class Chunk
         }
     }
 
-    private void FillLocalColumn(int xzOffset, int localMinY, int localMaxY, int stateId)
+    private void FillLocalColumn(int xzOffset, int localMinY, int localMaxY, ushort stateId)
     {
         for (int y = localMinY; y < localMaxY; y++)
         {
@@ -106,11 +107,21 @@ public class Chunk
             return BlockState.ById[blocks[LocalCoordToIndex(x, y, z)]];
         return null;
     }
-    public void SetBlock(int localX, int localY, int localZ, int blockStateId)
+    public void SetBlock(int localX, int localY, int localZ, ushort blockStateId)
     {
         if (CheckInBounds(localX, localY, localZ))
         {
-            blocks[LocalCoordToIndex(localX, localY, localZ)] = blockStateId;
+            int index = LocalCoordToIndex(localX, localY, localZ);
+            int prevBlockId = blocks[index];
+            if (prevBlockId != Block.AIR.DefaultState.Id && blockStateId == Block.AIR.DefaultState.Id)
+            {
+                nonAirBlockCount--;
+            }
+            else if (prevBlockId == Block.AIR.DefaultState.Id && blockStateId != Block.AIR.DefaultState.Id)
+            {
+                nonAirBlockCount++;
+            }
+            blocks[index] = blockStateId;
         }
     }
 
@@ -119,7 +130,7 @@ public class Chunk
     // =========================================================================
     public void CompileVertexData(Dictionary<Vector3, Chunk> worldSnapshot)
     {
-        if (isEmpty) return; // Your optimization skip flag!
+        if (IsEmpty) return; // Your optimization skip flag!
 
         // 1. Rent maximum-capacity blocks from the shared global pool
         // No allocation occurs here; we are just borrowing existing heap memory blocks
