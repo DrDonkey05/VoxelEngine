@@ -28,7 +28,7 @@ public class Player
     }
     public void HandleUpdate(double deltaTime)
     {
-        float movementSpeed = 25f;
+        float movementSpeed = 5f;
         float speed = movementSpeed * (float)deltaTime;
 
         Vector3 newPosition = Position;

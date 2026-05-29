@@ -1,5 +1,7 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using System.Numerics;
+using System.Threading;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
@@ -16,31 +18,29 @@ public class Program
 {
     public static Window Window { get; private set; }
 
-    private static double tickTimer = 0.0;
-    private static byte ticksPerSecond = 20;
-    private static int tick = 0;
-    private static double timePerTick = 1.0 / ticksPerSecond;
+    private static Thread gameThread;
+    private static Game gameInstance;
 
     private static TextureAtlas atlas;
     private static Shader shader;
     private static BlockRenderer blockRenderer;
 
-    private static World world;
+    // The Main Render Thread owns the Player and Camera entirely now!
     private static Player player;
 
     public static void Main(string[] args)
     {
         WindowOptions options = WindowOptions.Default;
         options.Size = new Vector2D<int>(2000, 1200);
-        options.Title = "Voxel Engine";
+        options.Title = "Unlocked Input Voxel Engine";
 
         Window = new Window(options);
 
         Window.OnLoad += OnLoad;
-        Window.OnClosing += () => world?.Dispose();
-        Window.OnResize += (size) => player.Camera.UpdateAspectRatio(size);
+        Window.OnClosing += OnClosing;
+        Window.OnResize += (size) => player?.Camera?.UpdateAspectRatio(size);
         Window.OnRender += OnRender;
-        Window.OnUpdate += OnUpdate;
+        Window.OnUpdate += OnUpdate; // We bring back OnUpdate for high-speed tracking!
 
         Window.OnKeyDown += (kb, key, code) =>
         {
@@ -51,60 +51,80 @@ public class Program
             }
             player?.OnKeyDown(key);
         };
-        Window.OnKeyUp += (kb, key, code) =>
-        {
-            player?.OnKeyUp(key);
-        };
+        Window.OnKeyUp += (kb, key, code) => player?.OnKeyUp(key);
+        Window.OnMouseMove += (ms, pos) => player?.OnMouseMove(pos);
+        Window.OnMouseDown += OnMouseDown;
 
-        Window.OnMouseMove += (ms, pos) =>
-        {
-            player?.OnMouseMove(pos);
-        };
         Window.Run();
     }
 
-    private static void OnUpdate(double dt)
+    private static void OnMouseDown(IMouse mouse, MouseButton button)
     {
-        tickTimer += dt;
+        if (player == null || gameInstance?.World == null) return;
 
-        while (tickTimer >= timePerTick)
+        // Run a high-precision raycast through our unlocked, live camera context
+        // Raycast distance limit: 5-6 blocks out (standard player reach)
+        var rayResult = PerformVoxelRaycast(player.Camera, 6.0f);
+
+        if (rayResult.Hit)
         {
-            tickTimer -= timePerTick;
-
-            if (tick == int.MaxValue)
-                tick = 0;
-            else
-                tick++;
+            if (button == MouseButton.Left)
+            {
+                // Break block -> change target position to AIR
+                gameInstance.EnqueueInteraction(rayResult.BlockPos, Block.AIR.DefaultState.Id, InteractionType.Break);
+            }
+            else if (button == MouseButton.Right)
+            {
+                // Place block -> change the block right adjacent to the face we hit (e.g., STONE or DIRT)
+                Vector3 placePos = rayResult.BlockPos + rayResult.HitNormal;
+                gameInstance.EnqueueInteraction(placePos, Block.STONE.DefaultState.Id, InteractionType.Place);
+            }
         }
-
-        player.HandleUpdate(dt);
-        world.HandleUpdate(Window.Gl, dt, player.Position);
     }
-    private static void OnRender(double dt)
+
+    // Simple Voxel Raycast (DDA-lite / Sampling approach)
+    private static (bool Hit, Vector3 BlockPos, Vector3 HitNormal) PerformVoxelRaycast(Camera camera, float maxDistance)
     {
-        Window.Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+        Vector3 rayOrigin = camera.Position;
+        Vector3 rayDirection = Vector3.Normalize(camera.Forward);
 
-        blockRenderer.Begin(tick, atlas.Texture, player.Camera);
+        float step = 0.05f; // Small stepping increments for precision
+        Vector3 currentPos = rayOrigin;
+        Vector3 previousBlockPos = new Vector3(MathF.Floor(rayOrigin.X), MathF.Floor(rayOrigin.Y), MathF.Floor(rayOrigin.Z));
 
-        foreach (var chunk in world.LoadedChunks.Values)
+        for (float distance = 0; distance < maxDistance; distance += step)
         {
-            if (chunk.Mesh != null && chunk.Mesh.IndexCount > 0)
-                blockRenderer.Render(chunk.WorldPosition, chunk.Mesh);
+            currentPos += rayDirection * step;
+
+            int bx = (int)MathF.Floor(currentPos.X);
+            int by = (int)MathF.Floor(currentPos.Y);
+            int bz = (int)MathF.Floor(currentPos.Z);
+            Vector3 currentBlockPos = new Vector3(bx, by, bz);
+
+            if (currentBlockPos != previousBlockPos)
+            {
+                var blockState = gameInstance.World.GetBlock(bx, by, bz);
+                // If we hit a block that isn't AIR or outside of generation limits
+                if (blockState != null && blockState.Id != Block.AIR.DefaultState.Id)
+                {
+                    // Calculate surface normal based on where we entered the voxel bounding box
+                    Vector3 hitNormal = previousBlockPos - currentBlockPos;
+                    return (true, currentBlockPos, hitNormal);
+                }
+                previousBlockPos = currentBlockPos;
+            }
         }
 
-        blockRenderer.End();
+        return (false, Vector3.Zero, Vector3.Zero);
     }
 
     private static void OnLoad()
     {
         Window.Gl.ClearColor(Color.CornflowerBlue);
-
         Window.Gl.Enable(EnableCap.CullFace);
         Window.Gl.CullFace(TriangleFace.Back);
-
         Window.Gl.Enable(EnableCap.Blend);
         Window.Gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-
         Window.Gl.Enable(EnableCap.DepthTest);
         Window.Gl.DepthFunc(DepthFunction.Lequal);
 
@@ -117,8 +137,60 @@ public class Program
 
         Window.Mouse.Cursor.CursorMode = CursorMode.Raw;
 
-        world = new World(0, player, Window.Gl);
+        // Start the background game systems thread
+        gameInstance = new Game(Window.AspectRatio);
+        gameInstance.Initialize();
+
+        gameThread = new Thread(gameInstance.Start);
+        gameThread.Name = "GameSimulationThread";
+        gameThread.IsBackground = true;
+        gameThread.Start();
     }
+
+    // --- RUNS AT MAX FPS (e.g., 144+ updates per second) ---
+    private static void OnUpdate(double dt)
+    {
+        // 1. Calculate input mechanics instantly using precise frame delta times
+        player?.HandleUpdate(dt);
+
+        // 2. Safely push the updated position down to the world generation thread
+        if (player != null)
+        {
+            gameInstance?.UpdateSharedPlayerPosition(player.Position);
+        }
+    }
+
+    // --- RUNS AT MAX FPS ---
+    private static void OnRender(double dt)
+    {
+        Window.Gl.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+        // Upload any waiting meshes that the background thread built
+        gameInstance.World?.HandleGpuUploads(Window.Gl);
+
+        // Render directly using the live, unlocked player camera state!
+        blockRenderer.Begin(0, atlas.Texture, player.Camera);
+
+        var renderList = gameInstance.World?.ChunksToRender;
+        if (renderList != null)
+        {
+            for (int i = 0; i < renderList.Count; i++)
+            {
+                Chunk chunk = renderList[i];
+                blockRenderer.Render(chunk.WorldPosition, chunk.Mesh);
+            }
+        }
+
+        blockRenderer.End();
+    }
+
+    private static void OnClosing()
+    {
+        gameInstance?.Stop();
+        gameThread?.Join(500);
+        gameInstance?.Shutdown();
+    }
+
     private static void LoadTextureAtlas()
     {
         atlas = new TextureAtlas(Window.Gl);
@@ -129,6 +201,7 @@ public class Program
         atlas.Add("./assets/textures/block/grass_block_side_overlay.png");
         atlas.Stitch();
     }
+
     private static void LoadBlocks()
     {
         Block.AIR.GenerateStatesAndModels(atlas);
@@ -137,6 +210,7 @@ public class Program
         Block.GRASS_BLOCK.GenerateStatesAndModels(atlas);
         ModelBakery.ClearJsonCaches();
     }
+
     private static void LoadRenderer()
     {
         shader = Shader.CreateShader(Window.Gl, "./assets/shaders/shader.vert", "./assets/shaders/shader.frag");
