@@ -1,31 +1,32 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
-using ServerProj.src.noise;
 using Silk.NET.OpenGL;
 using VoxelEngine.src.models;
+using VoxelEngine.src.world.terrain;
 
 namespace VoxelEngine.src.world;
 
 public class World : IDisposable
 {
     public Dictionary<Vector3, Chunk> LoadedChunks { get; } = new();
-    private readonly List<Chunk> chunksToMesh = new();
     private readonly List<Vector3> chunksToRemove = new();
 
     private Player player;
     private int renderDistanceRadius = 3;
-    private Perlin terrainGenerator;
+    private NoiseSettings noiseSettings;
     private bool isDisposed;
 
     private Vector3 lastPlayerChunkPos = new Vector3(float.MaxValue);
-    private int sortTicker = 0;
 
     public World(int seed, Player player, GL gl)
     {
         this.player = player;
-        terrainGenerator = new Perlin(seed);
-        GenerateSpawnChunks();
+        noiseSettings = new NoiseSettings(seed, 0.01f, 3, 0.5f, 2f, 8, 16);
+
+        Vector3 initialPos = Vector3.Zero;
+        ForceStreamAndMeshEntireWorld(gl, initialPos);
+        lastPlayerChunkPos = initialPos;
     }
 
     public void HandleUpdate(GL gl, double dt, Vector3 playerWorldPos)
@@ -38,89 +39,28 @@ public class World : IDisposable
 
         if (playerChunkPos != lastPlayerChunkPos)
         {
-            UpdateStreaming(playerChunkPos);
+            ForceStreamAndMeshEntireWorld(gl, playerChunkPos);
             lastPlayerChunkPos = playerChunkPos;
-        }
-
-        if (chunksToMesh.Count > 0)
-        {
-            sortTicker++;
-            if (sortTicker >= 10)
-            {
-                chunksToMesh.Sort((a, b) =>
-                    Vector3.DistanceSquared(a.Position, playerChunkPos)
-                    .CompareTo(Vector3.DistanceSquared(b.Position, playerChunkPos))
-                );
-                sortTicker = 0;
-            }
-
-            Chunk meshingChunk = null;
-            int targetIndex = -1;
-
-            for (int i = 0; i < chunksToMesh.Count; i++)
-            {
-                if (AreNeighborsLoadedOrBoundary(chunksToMesh[i].Position, playerChunkPos))
-                {
-                    meshingChunk = chunksToMesh[i];
-                    targetIndex = i;
-                    break;
-                }
-            }
-
-            if (meshingChunk != null)
-            {
-                chunksToMesh.RemoveAt(targetIndex);
-                meshingChunk.BuildMesh(gl, this);
-                meshingChunk.IsDirty = false;
-            }
         }
 
         foreach (var chunk in LoadedChunks.Values)
         {
-            if (chunk.IsDirty && AreNeighborsLoadedOrBoundary(chunk.Position, playerChunkPos))
+            if (chunk.IsDirty)
             {
                 chunk.BuildMesh(gl, this);
                 chunk.IsDirty = false;
-                break;
             }
         }
     }
 
-    private bool AreNeighborsLoadedOrBoundary(Vector3 chunkPos, Vector3 playerChunkPos)
-    {
-        Vector3[] neighbors = new Vector3[]
-        {
-            chunkPos + Vector3.UnitX, chunkPos - Vector3.UnitX,
-            chunkPos + Vector3.UnitY, chunkPos - Vector3.UnitY,
-            chunkPos + Vector3.UnitZ, chunkPos - Vector3.UnitZ
-        };
-
-        for (int i = 0; i < neighbors.Length; i++)
-        {
-            Vector3 n = neighbors[i];
-
-            if (!LoadedChunks.ContainsKey(n))
-            {
-                float dx = MathF.Abs(n.X - playerChunkPos.X);
-                float dy = MathF.Abs(n.Y - playerChunkPos.Y);
-                float dz = MathF.Abs(n.Z - playerChunkPos.Z);
-
-                if (dx <= renderDistanceRadius && dy <= renderDistanceRadius && dz <= renderDistanceRadius)
-                {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private void UpdateStreaming(Vector3 playerChunkPos)
+    private void ForceStreamAndMeshEntireWorld(GL gl, Vector3 playerChunkPos)
     {
         int pX = (int)playerChunkPos.X;
         int pY = (int)playerChunkPos.Y;
         int pZ = (int)playerChunkPos.Z;
 
-        // --- PASS 1: LOAD NEW CHUNKS ---
+        // Generate new chunks
+        List<Chunk> newlyGeneratedChunks = new List<Chunk>();
         for (int x = -renderDistanceRadius; x <= renderDistanceRadius; x++)
         {
             for (int y = -renderDistanceRadius; y <= renderDistanceRadius; y++)
@@ -131,13 +71,35 @@ public class World : IDisposable
 
                     if (!LoadedChunks.ContainsKey(targetChunkPos))
                     {
-                        GenerateChunk((int)targetChunkPos.X, (int)targetChunkPos.Y, (int)targetChunkPos.Z);
+                        Chunk chunk = new Chunk((int)targetChunkPos.X, (int)targetChunkPos.Y, (int)targetChunkPos.Z, noiseSettings);
+                        LoadedChunks.Add(chunk.Position, chunk);
+                        newlyGeneratedChunks.Add(chunk);
                     }
                 }
             }
         }
 
-        // --- PASS 2: UNLOAD DISTANT CHUNKS ---
+        // Update neighbours to be dirty
+        foreach (var chunk in newlyGeneratedChunks)
+        {
+            foreach (var face in BlockFaceExt.Faces)
+            {
+                Vector3 neighborPos = chunk.Position + face.Normal();
+                if (LoadedChunks.TryGetValue(neighborPos, out Chunk neighbor))
+                {
+                    neighbor.IsDirty = true;
+                }
+            }
+        }
+
+        // Build new chunk meshes
+        foreach (var chunk in newlyGeneratedChunks)
+        {
+            chunk.BuildMesh(gl, this);
+            chunk.IsDirty = false;
+        }
+
+        // Check chunks to remove
         chunksToRemove.Clear();
         foreach (var chunkPos in LoadedChunks.Keys)
         {
@@ -153,6 +115,8 @@ public class World : IDisposable
             }
         }
 
+
+        // Remove a chunk
         for (int i = 0; i < chunksToRemove.Count; i++)
         {
             Vector3 pos = chunksToRemove[i];
@@ -160,7 +124,6 @@ public class World : IDisposable
             {
                 chunk.Mesh?.Dispose();
                 LoadedChunks.Remove(pos);
-                chunksToMesh.Remove(chunk);
             }
         }
     }
@@ -189,37 +152,6 @@ public class World : IDisposable
         );
     }
 
-    private void GenerateSpawnChunks()
-    {
-        UpdateStreaming(Vector3.Zero);
-        lastPlayerChunkPos = Vector3.Zero;
-    }
-
-    private Chunk GenerateChunk(int x, int y, int z)
-    {
-        Chunk chunk = new Chunk(x, y, z, terrainGenerator);
-        LoadedChunks.Add(chunk.Position, chunk);
-
-        Vector3[] directions = new Vector3[]
-        {
-            new(1, 0, 0), new(-1, 0, 0),
-            new(0, 1, 0), new(0, -1, 0),
-            new(0, 0, 1), new(0, 0, -1)
-        };
-
-        for (int i = 0; i < directions.Length; i++)
-        {
-            Vector3 neighborPos = chunk.Position + directions[i];
-            if (LoadedChunks.TryGetValue(neighborPos, out Chunk neighbor))
-            {
-                neighbor.IsDirty = true;
-            }
-        }
-
-        chunksToMesh.Add(chunk);
-        return chunk;
-    }
-
     public void Dispose()
     {
         if (!isDisposed)
@@ -229,7 +161,6 @@ public class World : IDisposable
                 chunk?.Mesh?.Dispose();
             }
             LoadedChunks.Clear();
-            chunksToMesh.Clear();
             isDisposed = true;
         }
         GC.SuppressFinalize(this);

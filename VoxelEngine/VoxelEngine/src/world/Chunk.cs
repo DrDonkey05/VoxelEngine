@@ -1,10 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Numerics;
+﻿using System.Numerics;
 using ServerProj.src.noise;
 using Silk.NET.OpenGL;
 using VoxelEngine.src.models;
 using VoxelEngine.src.rendering;
+using VoxelEngine.src.world.terrain;
 
 namespace VoxelEngine.src.world;
 
@@ -20,45 +19,73 @@ public class Chunk
     public Vector3 Position { get; }
     public Vector3 WorldPosition { get; }
 
-    public Chunk(int x, int y, int z, Perlin terrainGenerator)
+    public Chunk(int x, int y, int z, NoiseSettings noiseSettings)
     {
         Position = new Vector3(x, y, z);
         WorldPosition = Position * SIZE;
         IsDirty = false;
 
-        GenerateChunkData(terrainGenerator);
+        GenerateChunkData(noiseSettings);
     }
 
-    private void GenerateChunkData(Perlin terrainGenerator)
+    private void GenerateChunkData(NoiseSettings noiseSettings)
     {
+        int before = DateTime.Now.Millisecond;
+
+
+        int chunkMinY = (int)WorldPosition.Y;
+        int chunkMaxY = chunkMinY + SIZE;
+
         for (int x = 0; x < SIZE; x++)
         {
+            int worldX = (int)WorldPosition.X + x;
+
             for (int z = 0; z < SIZE; z++)
             {
-                int baseHeightVariance = 16;
-                int baseHeight = 8;
+                int worldZ = (int)WorldPosition.Z + z;
 
-                double noiseValue = terrainGenerator.GetOctaveNoise2D((WorldPosition.X + x) / 64f, (WorldPosition.Z + z) / 64f, 5, 0.5, 2);
+                double noiseValue = Noise.Get2D(noiseSettings, worldX, worldZ);
+                int surfaceHeight = (int)(noiseValue * noiseSettings.heightVariance) + noiseSettings.baseHeight;
 
-                int height = (int)(noiseValue * baseHeightVariance) + baseHeight;
+                if (surfaceHeight < chunkMinY)
+                {
+                    FillLocalColumn(x, z, 0, SIZE, Block.AIR.DefaultState.Id);
+                    continue;
+                }
+                if (surfaceHeight - 2 >= chunkMaxY)
+                {
+                    FillLocalColumn(x, z, 0, SIZE, Block.STONE.DefaultState.Id);
+                    continue;
+                }
+
                 for (int y = 0; y < SIZE; y++)
                 {
-                    int worldY = (int)WorldPosition.Y + y;
-
+                    int worldY = chunkMinY + y;
                     Block block;
-                    if (worldY < height - 2)
+
+                    if (worldY < surfaceHeight - 2)
                         block = Block.STONE;
-                    else if (worldY < height)
+                    else if (worldY < surfaceHeight)
                         block = Block.DIRT;
-                    else if (worldY == height)
+                    else if (worldY == surfaceHeight)
                         block = Block.GRASS_BLOCK;
                     else
                         block = Block.AIR;
 
-                    int stateId = block.DefaultState.Id;
-                    this.blocks[LocalCoordToIndex(x, y, z)] = stateId;
+                    this.blocks[LocalCoordToIndex(x, y, z)] = block.DefaultState.Id;
                 }
             }
+        }
+        int after = DateTime.Now.Millisecond;
+
+        Console.WriteLine($"Generated chunk in {after - before} ms");
+    }
+
+    private void FillLocalColumn(int localX, int localZ, int localMinY, int localMaxY, int stateId)
+    {
+        for (int y = localMinY; y < localMaxY; y++)
+        {
+            this.blocks[LocalCoordToIndex(localX, y, localZ)] = stateId;
         }
     }
 
