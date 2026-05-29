@@ -1,7 +1,5 @@
 ﻿using System.Numerics;
-using Silk.NET.GLFW;
 using Silk.NET.Input;
-using Silk.NET.Maths;
 
 namespace VoxelEngine.src;
 

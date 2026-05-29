@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using ServerProj.src.noise;
 using Silk.NET.OpenGL;
 using VoxelEngine.src.models;
 using VoxelEngine.src.rendering;
@@ -30,9 +29,6 @@ public class Chunk
 
     private void GenerateChunkData(NoiseSettings noiseSettings)
     {
-        int before = DateTime.Now.Millisecond;
-
-
         int chunkMinY = (int)WorldPosition.Y;
         int chunkMaxY = chunkMinY + SIZE;
 
@@ -76,9 +72,6 @@ public class Chunk
                 }
             }
         }
-        int after = DateTime.Now.Millisecond;
-
-        Console.WriteLine($"Generated chunk in {after - before} ms");
     }
 
     private void FillLocalColumn(int localX, int localZ, int localMinY, int localMaxY, int stateId)

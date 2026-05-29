@@ -1,5 +1,4 @@
 ﻿using System.Numerics;
-using Silk.NET.Input;
 using Silk.NET.OpenGL;
 using VoxelEngine.src.rendering.textures;
 

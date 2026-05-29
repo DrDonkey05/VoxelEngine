@@ -1,5 +1,4 @@
-﻿using Silk.NET.OpenGL;
-using VoxelEngine.src.json;
+﻿using VoxelEngine.src.json;
 using VoxelEngine.src.models;
 using VoxelEngine.src.rendering.textures;
 
