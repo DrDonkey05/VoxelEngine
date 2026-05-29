@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Numerics;
 using Silk.NET.OpenGL;
 using VoxelEngine.src.models;
 using VoxelEngine.src.world.terrain;
@@ -7,27 +9,33 @@ namespace VoxelEngine.src.world;
 
 public class World : IDisposable
 {
-    public Dictionary<Vector3, Chunk> LoadedChunks { get; } = new();
-    private readonly List<Vector3> chunksToRemove = new();
+    // Rule 2: Background threads read/write here, so we use Concurrent collections
+    public ConcurrentDictionary<Vector3, Chunk> LoadedChunks { get; } = new();
+
+    // Dedicated cache list read ONLY by the Render Thread (No collection dictionary locking)
+    public List<Chunk> ChunksToRender { get; } = new();
+
+    // Safe multi-threaded pipelines communicating back down to the main GPU layer
+    private readonly ConcurrentQueue<Chunk> chunksReadyToUpload = new();
+    private readonly ConcurrentQueue<Vector3> chunksToRemove = new();
 
     private Player player;
-    private int renderDistanceRadius = 3;
+    private int renderDistanceRadius = 10;
     private NoiseSettings noiseSettings;
     private bool isDisposed;
 
     private Vector3 lastPlayerChunkPos = new Vector3(float.MaxValue);
 
-    public World(int seed, Player player, GL gl)
+    public World(int seed, Player player)
     {
         this.player = player;
-        noiseSettings = new NoiseSettings(seed, 0.01f, 3, 0.5f, 2f, 8, 16);
-
-        Vector3 initialPos = Vector3.Zero;
-        ForceStreamAndMeshEntireWorld(gl, initialPos);
-        lastPlayerChunkPos = initialPos;
+        noiseSettings = new NoiseSettings(seed, 0.01f, 3, 0.5f, 2f, 8, 64);
     }
 
-    public void HandleUpdate(GL gl, double dt, Vector3 playerWorldPos)
+    // =========================================================================
+    // 1. GAME THREAD PIPELINE (Fixed 20 TPS, No OpenGL Allowed)
+    // =========================================================================
+    public void HandleGameTick(double dt, Vector3 playerWorldPos)
     {
         Vector3 playerChunkPos = GetChunkPosFromBlockPos(
             (int)MathF.Floor(playerWorldPos.X),
@@ -37,47 +45,68 @@ public class World : IDisposable
 
         if (playerChunkPos != lastPlayerChunkPos)
         {
-            ForceStreamAndMeshEntireWorld(gl, playerChunkPos);
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            StreamWorldAroundPlayer(playerChunkPos); 
+            stopwatch.Stop();
             lastPlayerChunkPos = playerChunkPos;
+            Console.WriteLine($"Chunk updates took {stopwatch.ElapsedMilliseconds} ms");
         }
 
+        // Handle structural dirty flags (e.g. background tasks or neighborhood updates)
+        // Take a fast snapshot copy map to prevent thread access collisions during loops
+        var worldSnapshot = new Dictionary<Vector3, Chunk>(LoadedChunks);
         foreach (var chunk in LoadedChunks.Values)
         {
             if (chunk.IsDirty)
             {
-                chunk.BuildMesh(gl, this);
+                // Computes structural data on background CPU thread without blocking frames!
+                chunk.CompileVertexData(worldSnapshot);
+                chunksReadyToUpload.Enqueue(chunk);
                 chunk.IsDirty = false;
             }
         }
     }
-
-    private void ForceStreamAndMeshEntireWorld(GL gl, Vector3 playerChunkPos)
+    private void StreamWorldAroundPlayer(Vector3 playerChunkPos)
     {
         int pX = (int)playerChunkPos.X;
         int pY = (int)playerChunkPos.Y;
         int pZ = (int)playerChunkPos.Z;
 
-        // Generate new chunks
         List<Chunk> newlyGeneratedChunks = new List<Chunk>();
-        for (int x = -renderDistanceRadius; x <= renderDistanceRadius; x++)
-        {
-            for (int y = -renderDistanceRadius; y <= renderDistanceRadius; y++)
-            {
-                for (int z = -renderDistanceRadius; z <= renderDistanceRadius; z++)
-                {
-                    Vector3 targetChunkPos = new Vector3(pX + x, pY + y, pZ + z);
 
-                    if (!LoadedChunks.ContainsKey(targetChunkPos))
-                    {
-                        Chunk chunk = new Chunk((int)targetChunkPos.X, (int)targetChunkPos.Y, (int)targetChunkPos.Z, noiseSettings);
-                        LoadedChunks.Add(chunk.Position, chunk);
-                        newlyGeneratedChunks.Add(chunk);
-                    }
-                }
+        // =========================================================================
+        // 1. STRUCTURAL PHASE: SPIRAL OUTWARD GENERATION
+        // =========================================================================
+        // We iterate shell by shell (radius r) starting from the center (0) out to our render distance limit
+        for (int r = 0; r <= renderDistanceRadius; r++)
+        {
+            // For a radius of 0, we just check the single player column
+            if (r == 0)
+            {
+                ProcessVerticalChunkColumn(pX, pZ, pY, newlyGeneratedChunks);
+                continue;
             }
+
+            // Top Row: Left to Right
+            for (int x = -r; x <= r; x++)
+                ProcessVerticalChunkColumn(pX + x, pZ - r, pY, newlyGeneratedChunks);
+
+            // Right Column: Top to Bottom (skip corners already hit)
+            for (int z = -r + 1; z <= r; z++)
+                ProcessVerticalChunkColumn(pX + r, pZ + z, pY, newlyGeneratedChunks);
+
+            // Bottom Row: Right to Left (skip corners already hit)
+            for (int x = r - 1; x >= -r; x--)
+                ProcessVerticalChunkColumn(pX + x, pZ + r, pY, newlyGeneratedChunks);
+
+            // Left Column: Bottom to Top (skip corners already hit)
+            for (int z = r - 1; z >= -r + 1; z--)
+                ProcessVerticalChunkColumn(pX - r, pZ + z, pY, newlyGeneratedChunks);
         }
 
-        // Update neighbours to be dirty
+        // =========================================================================
+        // 2. PROPAGATION PHASE: FLAGGING NEIGHBORS
+        // =========================================================================
         foreach (var chunk in newlyGeneratedChunks)
         {
             foreach (var face in BlockFaceExt.Faces)
@@ -90,15 +119,19 @@ public class World : IDisposable
             }
         }
 
-        // Build new chunk meshes
+        // =========================================================================
+        // 3. MATHEMATICAL MESHING PHASE
+        // =========================================================================
+        var worldSnapshot = new Dictionary<Vector3, Chunk>(LoadedChunks);
         foreach (var chunk in newlyGeneratedChunks)
         {
-            chunk.BuildMesh(gl, this);
-            chunk.IsDirty = false;
+            chunk.CompileVertexData(worldSnapshot);
+            chunksReadyToUpload.Enqueue(chunk);
         }
 
-        // Check chunks to remove
-        chunksToRemove.Clear();
+        // =========================================================================
+        // 4. CLEANUP PHASE: UNLOAD OUT OF RANGE
+        // =========================================================================
         foreach (var chunkPos in LoadedChunks.Keys)
         {
             float distanceX = MathF.Abs(chunkPos.X - playerChunkPos.X);
@@ -109,19 +142,66 @@ public class World : IDisposable
                 distanceY > renderDistanceRadius ||
                 distanceZ > renderDistanceRadius)
             {
-                chunksToRemove.Add(chunkPos);
+                chunksToRemove.Enqueue(chunkPos);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Helper function to populate chunks vertically at a given (X, Z) coordinate map point.
+    /// Generates from the player's level outward to capture immediate ground elements fast.
+    /// </summary>
+    private void ProcessVerticalChunkColumn(int cx, int cz, int centerY, List<Chunk> generationList)
+    {
+        for (int y = -renderDistanceRadius; y <= renderDistanceRadius; y++)
+        {
+            Vector3 targetChunkPos = new Vector3(cx, centerY + y, cz);
+
+            if (!LoadedChunks.ContainsKey(targetChunkPos))
+            {
+                Chunk chunk = new Chunk((int)targetChunkPos.X, (int)targetChunkPos.Y, (int)targetChunkPos.Z, noiseSettings);
+                if (LoadedChunks.TryAdd(chunk.Position, chunk))
+                {
+                    generationList.Add(chunk);
+                }
+            }
+        }
+    }
+    // =========================================================================
+    // 2. RENDER THREAD PIPELINE (Main Thread Unlocked FPS, OpenGL Allowed)
+    // =========================================================================
+    public void HandleGpuUploads(GL gl)
+    {
+        bool renderListChanged = false;
+
+        // Process newly meshed chunks waiting for graphics assignment
+        while (chunksReadyToUpload.TryDequeue(out Chunk chunk))
+        {
+            // Rule 1: We carry out the actual hardware API interaction strictly here
+            chunk.UploadMeshToGPU(gl);
+            renderListChanged = true;
+        }
+
+        // Process removals safely inside the GL viewport instance loop context
+        while (chunksToRemove.TryDequeue(out Vector3 posToRemove))
+        {
+            if (LoadedChunks.TryRemove(posToRemove, out Chunk chunk))
+            {
+                chunk.Mesh?.Dispose(); // Free GPU VRAM allocations cleanly
+                renderListChanged = true;
             }
         }
 
-
-        // Remove a chunk
-        for (int i = 0; i < chunksToRemove.Count; i++)
+        // Rule 3: Rebuild a fast array cache only when a chunk actually gets loaded/unloaded
+        if (renderListChanged)
         {
-            Vector3 pos = chunksToRemove[i];
-            if (LoadedChunks.TryGetValue(pos, out Chunk chunk))
+            ChunksToRender.Clear();
+            foreach (var chunk in LoadedChunks.Values)
             {
-                chunk.Mesh?.Dispose();
-                LoadedChunks.Remove(pos);
+                if (chunk.Mesh != null && chunk.Mesh.IndexCount > 0)
+                {
+                    ChunksToRender.Add(chunk);
+                }
             }
         }
     }
@@ -139,6 +219,36 @@ public class World : IDisposable
             return chunk.GetBlock(localX, localY, localZ);
         }
         return null;
+    }
+    public void SetBlock(int x, int y, int z, int blockStateId)
+    {
+        Vector3 chunkPos = GetChunkPosFromBlockPos(x, y, z);
+
+        if (LoadedChunks.TryGetValue(chunkPos, out Chunk chunk))
+        {
+            int localX = x - (int)chunkPos.X * Chunk.SIZE;
+            int localY = y - (int)chunkPos.Y * Chunk.SIZE;
+            int localZ = z - (int)chunkPos.Z * Chunk.SIZE;
+
+            chunk.SetBlock(localX, localY, localZ, blockStateId);
+            chunk.IsDirty = true;
+
+            // --- UPDATE NEIGHBOR CHUNKS IF MODIFICATION LIES ON AN EDGE ---
+            if (localX == 0) MarkNeighborDirty(chunkPos + new Vector3(-1, 0, 0));
+            if (localX == Chunk.SIZE - 1) MarkNeighborDirty(chunkPos + new Vector3(1, 0, 0));
+            if (localY == 0) MarkNeighborDirty(chunkPos + new Vector3(0, -1, 0));
+            if (localY == Chunk.SIZE - 1) MarkNeighborDirty(chunkPos + new Vector3(0, 1, 0));
+            if (localZ == 0) MarkNeighborDirty(chunkPos + new Vector3(0, 0, -1));
+            if (localZ == Chunk.SIZE - 1) MarkNeighborDirty(chunkPos + new Vector3(0, 0, 1));
+        }
+    }
+
+    private void MarkNeighborDirty(Vector3 neighborChunkPos)
+    {
+        if (LoadedChunks.TryGetValue(neighborChunkPos, out Chunk neighbor))
+        {
+            neighbor.IsDirty = true;
+        }
     }
 
     public Vector3 GetChunkPosFromBlockPos(int x, int y, int z)

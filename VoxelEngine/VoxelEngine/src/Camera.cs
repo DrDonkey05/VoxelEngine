@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System;
+using System.Numerics;
 
 namespace VoxelEngine.src;
 
@@ -25,6 +26,24 @@ public class Camera
         CreateProjectionMatrix();
     }
 
+    private Camera() { }
+
+    public Camera Clone()
+    {
+        return new Camera()
+        {
+            Position = this.Position,
+            Forward = this.Forward,
+            Up = this.Up,
+            Right = this.Right,
+            Yaw = this.Yaw,
+            Pitch = this.Pitch,
+            Fov = this.Fov,
+            AspectRatio = this.AspectRatio,
+            ProjectionMatrix = this.ProjectionMatrix
+        };
+    }
+
     public void ModifyOrientation(float xOffset, float yOffset, bool limitPitch = true)
     {
         Yaw += xOffset;
@@ -32,7 +51,6 @@ public class Camera
 
         if (limitPitch)
         {
-            // Prevents the camera from flipping upside down at extreme vertical angles
             Pitch = Math.Clamp(Pitch, -89.9f, 89.9f);
         }
 
@@ -59,6 +77,7 @@ public class Camera
         AspectRatio = aspectRatio;
         CreateProjectionMatrix();
     }
+
     public void UpdateAspectRatio(Vector2 size)
     {
         AspectRatio = size.X / size.Y;
