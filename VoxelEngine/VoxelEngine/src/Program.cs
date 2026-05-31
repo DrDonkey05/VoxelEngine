@@ -64,69 +64,11 @@ public class Program
         };
         Window.OnKeyUp += (kb, key, code) => player?.OnKeyUp(key);
         Window.OnMouseMove += (ms, pos) => player?.OnMouseMove(pos);
-        Window.OnMouseDown += (mouse, button) => {
-            if (button == MouseButton.Left)
-            {
-                interactionTimer = BREAK_COOLDOWN;
-                isLeftMouseDown = true;
-                TriggerInteraction(); // Instant action!
-            }
-            if (button == MouseButton.Right)
-            {
-                interactionTimer = PLACE_COOLDOWN;
-                isRightMouseDown = true;
-                TriggerInteraction(); // Instant action!
-            }
-        };
+        Window.OnMouseDown += (mouse, button) => player?.OnMouseDown(button, gameInstance);
 
-        Window.OnMouseUp += (mouse, button) => {
-            if (button == MouseButton.Left) isLeftMouseDown = false;
-            if (button == MouseButton.Right) isRightMouseDown = false;
-
-            // Clear tracking when buttons are released
-            if (!isLeftMouseDown && !isRightMouseDown)
-            {
-                lastInteractedBlockPos = new Vector3(float.MaxValue);
-            }
-        };
+        Window.OnMouseUp += (mouse, button) => player?.OnMouseUp(button);
 
         Window.Run();
-    }
-
-    // Simple Voxel Raycast (DDA-lite / Sampling approach)
-    private static (bool Hit, Vector3 BlockPos, Vector3 HitNormal) PerformVoxelRaycast(Camera camera, float maxDistance)
-    {
-        Vector3 rayOrigin = camera.Position;
-        Vector3 rayDirection = Vector3.Normalize(camera.Forward);
-
-        float step = 0.05f; // Small stepping increments for precision
-        Vector3 currentPos = rayOrigin;
-        Vector3 previousBlockPos = new Vector3(MathF.Floor(rayOrigin.X), MathF.Floor(rayOrigin.Y), MathF.Floor(rayOrigin.Z));
-
-        for (float distance = 0; distance < maxDistance; distance += step)
-        {
-            currentPos += rayDirection * step;
-
-            int bx = (int)MathF.Floor(currentPos.X);
-            int by = (int)MathF.Floor(currentPos.Y);
-            int bz = (int)MathF.Floor(currentPos.Z);
-            Vector3 currentBlockPos = new Vector3(bx, by, bz);
-
-            if (currentBlockPos != previousBlockPos)
-            {
-                var blockState = gameInstance.World.GetBlock(bx, by, bz);
-                // If we hit a block that isn't AIR or outside of generation limits
-                if (blockState != null && blockState.Id != Block.AIR.DefaultState.Id)
-                {
-                    // Calculate surface normal based on where we entered the voxel bounding box
-                    Vector3 hitNormal = previousBlockPos - currentBlockPos;
-                    return (true, currentBlockPos, hitNormal);
-                }
-                previousBlockPos = currentBlockPos;
-            }
-        }
-
-        return (false, Vector3.Zero, Vector3.Zero);
     }
 
     private static void OnLoad()
@@ -158,52 +100,14 @@ public class Program
         gameThread.Start();
     }
 
-    // --- RUNS AT MAX FPS (e.g., 144+ updates per second) ---
+    // --- RUNS AT MAX FPS ---
     private static void OnUpdate(double dt)
     {
-        player?.HandleUpdate(dt);
+        player?.HandleUpdate(gameInstance, dt);
 
         if (player != null)
         {
             gameInstance?.UpdateSharedPlayerPosition(player.Position);
-        }
-
-        // Process continuous auto-repeat if a button remains held down
-        if (isLeftMouseDown || isRightMouseDown)
-        {
-            interactionTimer += dt;
-            double targetCooldown = isLeftMouseDown ? BREAK_COOLDOWN : PLACE_COOLDOWN;
-
-            if (interactionTimer >= targetCooldown)
-            {
-                TriggerInteraction();
-                interactionTimer = 0.0; // Clean, standard reset
-            }
-        }
-    }
-
-    private static void TriggerInteraction()
-    {
-        if (gameInstance?.World == null || player == null) return;
-
-        var rayResult = PerformVoxelRaycast(player.Camera, 6.0f);
-        if (!rayResult.Hit) return;
-
-        if (isLeftMouseDown)
-        {
-            gameInstance.EnqueueInteraction(rayResult.BlockPos, Block.AIR.DefaultState.Id, InteractionType.Break);
-        }
-        else if (isRightMouseDown)
-        {
-            Vector3 placePos = rayResult.BlockPos + rayResult.HitNormal;
-
-            if (placePos != lastInteractedBlockPos)
-            {
-                gameInstance.EnqueueInteraction(placePos, Block.STONE.DefaultState.Id, InteractionType.Place);
-                lastInteractedBlockPos = placePos;
-
-                Console.WriteLine($"Placed block at {placePos.X}, {placePos.Y}, {placePos.Z}");
-            }
         }
     }
 

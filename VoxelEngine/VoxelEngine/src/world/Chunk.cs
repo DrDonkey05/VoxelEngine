@@ -14,7 +14,8 @@ public class Chunk
     public Mesh Mesh { get; set; }
     public bool IsDirty { get; set; }
 
-    public const int SIZE = 16;
+    public const int SIZE = 16; 
+    private const int STRIDE_X = SIZE * SIZE;
     private readonly Vector3 TINT = new Vector3(0f, 0.73f, 0.12f);
 
     private ushort[] blocks = new ushort[SIZE * SIZE * SIZE];
@@ -46,7 +47,7 @@ public class Chunk
 
         for (int x = 0; x < SIZE; x++)
         {
-            int xOffset = x * SIZE * SIZE;
+            int xOffset = x * STRIDE_X;
             int worldX = x + (int)WorldPosition.X;
             for (int z = 0; z < SIZE; z++)
             {
@@ -149,10 +150,13 @@ public class Chunk
         worldSnapshot.TryGetValue(Position + new Vector3(0, 0, -1), out Chunk backChunk);
         worldSnapshot.TryGetValue(Position + new Vector3(0, 0, 1), out Chunk frontChunk);
 
+        var modelsCache = ModelBakery.CachedModels;
+        var statesCache = BlockState.ById;
+
         // 2. Run your 3D loops 
         for (int x = 0; x < SIZE; x++)
         {
-            int xOffset = x * SIZE * SIZE;
+            int xOffset = x * STRIDE_X;
             for (int z = 0; z < SIZE; z++)
             {
                 int xzOffset = xOffset + (z * SIZE);
@@ -163,8 +167,8 @@ public class Chunk
 
                     if (blockId == Block.AIR.DefaultState.Id) continue;
 
-                    BlockState currentState = BlockState.ById[blockId];
-                    BlockModel model = ModelBakery.CachedModels[currentState.ModelVariant];
+                    BlockState currentState = statesCache[blockId];
+                    BlockModel model = modelsCache[currentState.ModelVariant];
 
                     foreach (var (face, quads) in model.Faces)
                     {
@@ -183,7 +187,7 @@ public class Chunk
                                 // If inside the current chunk bounds, read directly from local blocks array
                                 if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE && nz >= 0 && nz < SIZE)
                                 {
-                                    neighborState = BlockState.ById[blocks[nx * SIZE * SIZE + nz * SIZE + ny]];
+                                    neighborState = statesCache[blocks[nx * STRIDE_X + nz * SIZE + ny]];
                                 }
                                 else
                                 {
@@ -205,16 +209,10 @@ public class Chunk
                             Vector3 blockPos = new Vector3(x, y, z);
 
                             // Append 4 vertices directly into our rented array
-                            for (int i = 0; i < 4; i++)
-                            {
-                                workingVertices[vertexCount++] = new Vertex(
-                                    quad.Positions[i] + blockPos,
-                                    quad.UVs[i],
-                                    new Vector3(quad.AnimData.X, quad.AnimData.Y, quad.AnimData.Z),
-                                    BitConverter.SingleToInt32Bits(quad.AnimData.W),
-                                    quad.Tint == 0 ? TINT : Vector3.One
-                                );
-                            }
+                            workingVertices[vertexCount++] = new Vertex(quad.Positions[0] + blockPos, quad.UVs[0], new Vector3(quad.AnimData.X, quad.AnimData.Y, quad.AnimData.Z), BitConverter.SingleToInt32Bits(quad.AnimData.W), quad.Tint == 0 ? TINT : Vector3.One);
+                            workingVertices[vertexCount++] = new Vertex(quad.Positions[1] + blockPos, quad.UVs[1], new Vector3(quad.AnimData.X, quad.AnimData.Y, quad.AnimData.Z), BitConverter.SingleToInt32Bits(quad.AnimData.W), quad.Tint == 0 ? TINT : Vector3.One);
+                            workingVertices[vertexCount++] = new Vertex(quad.Positions[2] + blockPos, quad.UVs[2], new Vector3(quad.AnimData.X, quad.AnimData.Y, quad.AnimData.Z), BitConverter.SingleToInt32Bits(quad.AnimData.W), quad.Tint == 0 ? TINT : Vector3.One);
+                            workingVertices[vertexCount++] = new Vertex(quad.Positions[3] + blockPos, quad.UVs[3], new Vector3(quad.AnimData.X, quad.AnimData.Y, quad.AnimData.Z), BitConverter.SingleToInt32Bits(quad.AnimData.W), quad.Tint == 0 ? TINT : Vector3.One);
 
                             // Append 6 indices directly into our rented array
                             workingIndices[indexCount++] = offset + 0;

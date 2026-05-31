@@ -32,6 +32,39 @@ public class World : IDisposable
         noiseSettings = new NoiseSettings(seed, 0.01f, 3, 0.5f, 2f, 8, 64);
     }
 
+    public (bool Hit, Vector3 BlockPos, Vector3 HitNormal) PerformVoxelRaycast(Vector3 origin, Vector3 direction, float maxDistance)
+    {
+        Vector3 rayOrigin = origin;
+        Vector3 rayDirection = Vector3.Normalize(direction);
+
+        float step = 0.05f;
+        Vector3 currentPos = rayOrigin;
+        Vector3 previousBlockPos = new Vector3(MathF.Floor(rayOrigin.X), MathF.Floor(rayOrigin.Y), MathF.Floor(rayOrigin.Z));
+
+        for (float distance = 0; distance < maxDistance; distance += step)
+        {
+            currentPos += rayDirection * step;
+
+            int bx = (int)MathF.Floor(currentPos.X);
+            int by = (int)MathF.Floor(currentPos.Y);
+            int bz = (int)MathF.Floor(currentPos.Z);
+            Vector3 currentBlockPos = new Vector3(bx, by, bz);
+
+            if (currentBlockPos != previousBlockPos)
+            {
+                var blockState = GetBlock(bx, by, bz);
+                if (blockState != null && blockState.Id != Block.AIR.DefaultState.Id)
+                {
+                    Vector3 hitNormal = previousBlockPos - currentBlockPos;
+                    return (true, currentBlockPos, hitNormal);
+                }
+                previousBlockPos = currentBlockPos;
+            }
+        }
+
+        return (false, Vector3.Zero, Vector3.Zero);
+    }
+
     // =========================================================================
     // 1. GAME THREAD PIPELINE (Fixed 20 TPS, No OpenGL Allowed)
     // =========================================================================
