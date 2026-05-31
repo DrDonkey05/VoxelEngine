@@ -34,7 +34,7 @@
 	  <None Update="asset_examples\blockstates\animated_block.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\blockstates\cobblestone_wall.json">
+	  <None Update="assets\blockstates\cobblestone_wall.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="asset_examples\blockstates\cross_block.json">
@@ -55,13 +55,13 @@
 	  <None Update="asset_examples\models\block\animated_block.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\cobblestone_wall_post.json">
+	  <None Update="assets\models\block\cobblestone_wall_post.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\cobblestone_wall_side.json">
+	  <None Update="assets\models\block\cobblestone_wall_side.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\cobblestone_wall_side_tall.json">
+	  <None Update="assets\models\block\cobblestone_wall_side_tall.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="asset_examples\models\block\cross.json">
@@ -85,46 +85,46 @@
 	  <None Update="asset_examples\models\block\layered_block.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\redstone_dust_dot.json">
+	  <None Update="assets\models\block\redstone_dust_dot.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\redstone_dust_side.json">
+	  <None Update="assets\models\block\redstone_dust_side.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\redstone_dust_side0.json">
+	  <None Update="assets\models\block\redstone_dust_side0.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\redstone_dust_side1.json">
+	  <None Update="assets\models\block\redstone_dust_side1.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\redstone_dust_side_alt.json">
+	  <None Update="assets\models\block\redstone_dust_side_alt.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\redstone_dust_side_alt0.json">
+	  <None Update="assets\models\block\redstone_dust_side_alt0.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\redstone_dust_side_alt1.json">
+	  <None Update="assets\models\block\redstone_dust_side_alt1.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\redstone_dust_up.json">
+	  <None Update="assets\models\block\redstone_dust_up.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="asset_examples\models\block\stone.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\template_wall_post.json">
+	  <None Update="assets\models\block\template_wall_post.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\template_wall_side.json">
+	  <None Update="assets\models\block\template_wall_side.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\models\block\template_wall_side_tall.json">
+	  <None Update="assets\models\block\template_wall_side_tall.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="asset_examples\models\block\up_block.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
-	  <None Update="asset_examples\blockstates\multipart_block.json">
+	  <None Update="assets\blockstates\redstone_wire.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </None>
 	  <None Update="asset_examples\blockstates\stone.json">

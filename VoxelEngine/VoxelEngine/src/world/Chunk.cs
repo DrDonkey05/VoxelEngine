@@ -2,6 +2,7 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Reflection;
 using Silk.NET.OpenGL;
 using VoxelEngine.src.models;
 using VoxelEngine.src.rendering;
@@ -36,11 +37,97 @@ public class Chunk
         WorldPosition = Position * SIZE;
         IsDirty = false;
 
-        GenerateChunkData(noiseSettings);
+        GenerateChunkData(null);
+    }
+
+    private static int debugBlockCount = 0;
+    private void GenerateDebug()
+    {
+        nonAirBlockCount = 0;
+
+        // 1. Establish absolute chunk boundaries
+        int chunkMinX = (int)WorldPosition.X;
+        int chunkMaxX = chunkMinX + SIZE;
+        int chunkMinZ = (int)WorldPosition.Z;
+        int chunkMaxZ = chunkMinZ + SIZE;
+
+        // Lock generation strictly to the ground level chunk
+        if ((int)WorldPosition.Y != 0) return;
+
+        BlockState[] byId = BlockState.ById.Values.ToArray();
+        int blockCount = byId.Length;
+
+        // Set your desired column count here (12 columns to match your current layout)
+        int columnsCount = 12;
+        int rowsCount = (int)MathF.Ceiling(blockCount / (float)columnsCount);
+
+        // Calculate exact structural boundaries in world block coordinates (1 solid, 1 air gap)
+        int maxWorldX = columnsCount * 2;
+        int maxWorldZ = rowsCount * 2;
+
+        // Early out if this chunk doesn't intersect our museum grid footprint
+        if (chunkMaxX <= 0 || chunkMinX >= maxWorldX ||
+            chunkMaxZ <= 0 || chunkMinZ >= maxWorldZ)
+        {
+            return;
+        }
+
+        // 2. Iterate through the 16x16 chunk flat area layer
+        for (int x = 0; x < SIZE; x++)
+        {
+            int xOffset = x * STRIDE_X;
+            int worldX = x + chunkMinX;
+
+            for (int z = 0; z < SIZE; z++)
+            {
+                int xzOffset = xOffset + (z * SIZE);
+                int worldZ = z + chunkMinZ;
+
+                ushort targetId = Block.AIR.DefaultState.Id;
+
+                // Check if we are inside the valid grid matrix box
+                if (worldX >= 0 && worldX < maxWorldX && worldZ >= 0 && worldZ < maxWorldZ)
+                {
+                    // Enforce the 1-block air gap layout: only place on even coordinates
+                    if (worldX % 2 == 0 && worldZ % 2 == 0)
+                    {
+                        int gridX = worldX / 2;
+                        int gridZ = worldZ / 2;
+
+                        // Match the 2D stride directly to your column layout bounds
+                        int stateIndex = (gridZ * columnsCount) + gridX;
+
+                        if (stateIndex < blockCount)
+                        {
+                            targetId = byId[stateIndex].Id;
+                            nonAirBlockCount++;
+                            debugBlockCount++;
+                            Console.WriteLine($"Generated block # {debugBlockCount} out of {blockCount}");
+                        }
+                    }
+                }
+
+                // Write the block state to Local Y = 0
+                this.blocks[xzOffset + 0] = targetId;
+
+                // Clear out overhead space completely so you can see everything clearly
+                for (int y = 1; y < SIZE; y++)
+                {
+                    this.blocks[xzOffset + y] = Block.AIR.DefaultState.Id;
+                }
+            }
+        }
     }
 
     private void GenerateChunkData(NoiseSettings noiseSettings)
     {
+        if (noiseSettings == null)
+        {
+            // Generate debug
+            GenerateDebug();
+            return;
+        }
+
         nonAirBlockCount = 0;
         int chunkMinY = (int)WorldPosition.Y;
         int chunkMaxY = chunkMinY + SIZE;

@@ -117,7 +117,7 @@ public class Player
 
             if (placePos != lastInteractedBlockPos)
             {
-                gameInstance.EnqueueInteraction(placePos, Block.STONE.DefaultState.Id, InteractionType.Place);
+                gameInstance.EnqueueInteraction(placePos, Block.OAK_SHELF.DefaultState.Id, InteractionType.Place);
                 lastInteractedBlockPos = placePos;
 
                 Console.WriteLine($"Placed block at {placePos.X}, {placePos.Y}, {placePos.Z}");

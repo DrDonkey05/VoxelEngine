@@ -150,6 +150,12 @@ public class Program
         atlas.Add("./assets/textures/block/grass_block_top.png");
         atlas.Add("./assets/textures/block/grass_block_side.png");
         atlas.Add("./assets/textures/block/grass_block_side_overlay.png");
+        atlas.Add("./assets/textures/block/oak_shelf.png");
+        atlas.Add("./assets/textures/block/redstone_dust_dot.png");
+        atlas.Add("./assets/textures/block/redstone_dust_line0.png");
+        atlas.Add("./assets/textures/block/redstone_dust_line1.png");
+        atlas.Add("./assets/textures/block/redstone_dust_overlay.png");
+        atlas.Add("./assets/textures/block/cobblestone.png");
         atlas.Stitch();
     }
 
@@ -159,6 +165,9 @@ public class Program
         Block.STONE.GenerateStatesAndModels(atlas);
         Block.DIRT.GenerateStatesAndModels(atlas);
         Block.GRASS_BLOCK.GenerateStatesAndModels(atlas);
+        Block.OAK_SHELF.GenerateStatesAndModels(atlas);
+        Block.REDSTONE_WIRE.GenerateStatesAndModels(atlas);
+        Block.COBBLESTONE_WALL.GenerateStatesAndModels(atlas);
         ModelBakery.ClearJsonCaches();
     }
 

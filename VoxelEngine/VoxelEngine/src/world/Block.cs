@@ -10,6 +10,9 @@ public class Block
     public static Block DIRT = new Block("dirt");
     public static Block STONE = new Block("stone");
     public static Block GRASS_BLOCK = new Block("grass_block");
+    public static Block OAK_SHELF = new Block("oak_shelf");
+    public static Block REDSTONE_WIRE = new Block("redstone_wire");
+    public static Block COBBLESTONE_WALL = new Block("cobblestone_wall");
 
     public string Id { get; }
     public BlockState DefaultState { get; private set; }
@@ -133,7 +136,6 @@ public class Block
                 if (!domain.ContainsKey(pair.Key))
                 {
                     domain[pair.Key] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    domain[pair.Key].Add("none");
                 }
 
                 // Include all split pipe values into the possibilities list (e.g., "side", "up")
