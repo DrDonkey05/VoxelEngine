@@ -10,6 +10,7 @@ public class Block
     public static Block DIRT = new Block("dirt");
     public static Block STONE = new Block("stone");
     public static Block GRASS_BLOCK = new Block("grass_block");
+    public static Block DAENGCHI = new Block("daengchi");
 
     public string Id { get; }
     public BlockState DefaultState { get; private set; }

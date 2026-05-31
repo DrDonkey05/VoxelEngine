@@ -150,6 +150,8 @@ public class Program
         atlas.Add("./assets/textures/block/grass_block_top.png");
         atlas.Add("./assets/textures/block/grass_block_side.png");
         atlas.Add("./assets/textures/block/grass_block_side_overlay.png");
+        atlas.Add("./assets/textures/block/daengchi_body.png");
+        atlas.Add("./assets/textures/block/daengchi_face.png");
         atlas.Stitch();
     }
 
@@ -159,6 +161,7 @@ public class Program
         Block.STONE.GenerateStatesAndModels(atlas);
         Block.DIRT.GenerateStatesAndModels(atlas);
         Block.GRASS_BLOCK.GenerateStatesAndModels(atlas);
+        Block.DAENGCHI.GenerateStatesAndModels(atlas);
         ModelBakery.ClearJsonCaches();
     }
 

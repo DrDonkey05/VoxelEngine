@@ -20,7 +20,7 @@ public class World : IDisposable
     private readonly ConcurrentQueue<Vector3> chunksToRemove = new();
 
     private Player player;
-    private int renderDistanceRadius = 15;
+    private int renderDistanceRadius = 5;
     private NoiseSettings noiseSettings;
     private bool isDisposed;
 
